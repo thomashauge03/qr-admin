@@ -45,6 +45,17 @@ export default function HomePage() {
   const [folderDeleteConfirm, setFolderDeleteConfirm] = useState<string | null>(null)
   const [showMenu, setShowMenu] = useState(false)
 
+  // Fang opp OAuth-callback fra Chrome Custom Tab og redirect til app deep-link
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+    const hash = window.location.hash
+    if (hash.includes('access_token=') && hash.includes('token_type=bearer')) {
+      // Vi er i Chrome Custom Tab etter OAuth - send tokens til appen via deep link
+      window.location.replace('no.haugemaskin.qradmin://callback' + hash)
+      return
+    }
+  }, [])
+
   // Auth — sjekk session + profil-status
   useEffect(() => {
     supabase.auth.getSession().then(async ({ data: { session } }) => {

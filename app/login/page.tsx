@@ -23,7 +23,9 @@ function LoginForm() {
     const isNative = Capacitor.isNativePlatform()
 
     if (isNative) {
-      // Mobil: åpne OAuth i innebygd nettleser, redirect tilbake via Supabase
+      // Mobil: åpne OAuth i Chrome Custom Tab
+      // Etter login redirecter Vercel-siden til no.haugemaskin.qradmin://callback
+      // App.addListener('appUrlOpen') fanger opp deep-linken og setter session
       const { data, error } = await supabase.auth.signInWithOAuth({
         provider: 'google',
         options: {
@@ -33,15 +35,24 @@ function LoginForm() {
       })
       if (error) { setError(error.message); setLoading(false); return }
       if (data.url) {
-        await Browser.open({ url: data.url })
-        // Lytt på app-resume for å sjekke session etter innlogging
-        const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
-          if (event === 'SIGNED_IN' && session) {
-            subscription.unsubscribe()
-            Browser.close()
+        // Sett opp deep-link lytter FØR vi åpner nettleseren
+        const { App } = await import('@capacitor/app')
+        const appUrlListener = await App.addListener('appUrlOpen', async ({ url }) => {
+          if (url.startsWith('no.haugemaskin.qradmin://callback')) {
+            appUrlListener.remove()
+            await Browser.close()
+            // Hent tokens fra URL-hash
+            const hash = url.split('#')[1] || ''
+            const params = new URLSearchParams(hash)
+            const access_token = params.get('access_token')
+            const refresh_token = params.get('refresh_token')
+            if (access_token && refresh_token) {
+              await supabase.auth.setSession({ access_token, refresh_token })
+            }
             window.location.href = '/'
           }
         })
+        await Browser.open({ url: data.url })
       }
     } else {
       // Web: vanlig redirect
