@@ -1,6 +1,8 @@
 'use client'
 import { useState, useEffect, useCallback } from 'react'
+import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
+import { isAllowed } from '@/lib/auth'
 import { Category, CategoryInsert } from '@/types'
 import CategoryCard from '@/components/CategoryCard'
 import CategoryForm from '@/components/CategoryForm'
@@ -11,6 +13,9 @@ type View    = 'grid' | 'list'
 type SortKey = 'name' | 'shelf_number' | 'created_at'
 
 export default function HomePage() {
+  const router = useRouter()
+  const [userEmail,     setUserEmail]     = useState<string | null>(null)
+  const [authLoading,   setAuthLoading]   = useState(true)
   const [categories,    setCategories]    = useState<Category[]>([])
   const [loading,       setLoading]       = useState(true)
   const [error,         setError]         = useState('')
@@ -22,6 +27,27 @@ export default function HomePage() {
   const [printCategory, setPrintCategory] = useState<Category | null>(null)
   const [showPrintAll,  setShowPrintAll]  = useState(false)
   const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null)
+
+  // Auth-sjekk
+  useEffect(() => {
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      const email = session?.user?.email
+      if (!session) {
+        router.replace('/login')
+      } else if (!isAllowed(email)) {
+        supabase.auth.signOut()
+        router.replace('/login?error=unauthorized')
+      } else {
+        setUserEmail(email ?? null)
+        setAuthLoading(false)
+      }
+    })
+  }, [router])
+
+  const handleSignOut = async () => {
+    await supabase.auth.signOut()
+    router.replace('/login')
+  }
 
   const fetchCategories = useCallback(async () => {
     setLoading(true)
@@ -71,6 +97,25 @@ export default function HomePage() {
       return a[sort].localeCompare(b[sort])
     })
 
+  if (authLoading) {
+    return (
+      <div className="flex items-center justify-center" style={{ minHeight: '100dvh', backgroundColor: 'var(--bg)' }}>
+        <div className="text-center">
+          <div className="inline-flex items-center justify-center rounded-2xl mb-4"
+            style={{ width: 48, height: 48, backgroundColor: 'var(--black)' }}>
+            <svg width="24" height="24" viewBox="0 0 18 18" fill="none">
+              <rect x="1" y="1" width="6" height="6" rx="1" fill="white"/>
+              <rect x="11" y="1" width="6" height="6" rx="1" fill="white"/>
+              <rect x="1" y="11" width="6" height="6" rx="1" fill="white"/>
+              <rect x="11" y="11" width="3" height="3" rx="0.5" fill="white"/>
+            </svg>
+          </div>
+          <p style={{ color: 'var(--muted)', fontSize: '0.875rem' }}>Sjekker tilgang...</p>
+        </div>
+      </div>
+    )
+  }
+
   return (
     <div style={{ minHeight: '100dvh', backgroundColor: 'var(--bg)' }}>
 
@@ -118,6 +163,23 @@ export default function HomePage() {
                 </svg>
                 Ny kategori
               </button>
+
+              {/* Brukar + logg ut */}
+              <div className="flex items-center gap-2 pl-2" style={{ borderLeft: '1px solid #2a2a2a' }}>
+                <span style={{ fontSize: '0.75rem', color: '#666', fontFamily: 'Inter, sans-serif' }}>
+                  {userEmail?.split('@')[0]}
+                </span>
+                <button onClick={handleSignOut}
+                  className="flex items-center justify-center rounded-lg transition-colors hover:bg-white/10"
+                  style={{ width: 32, height: 32, color: '#888' }}
+                  title="Logg ut">
+                  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/>
+                    <polyline points="16 17 21 12 16 7"/>
+                    <line x1="21" y1="12" x2="9" y2="12"/>
+                  </svg>
+                </button>
+              </div>
             </div>
           </div>
         </div>
