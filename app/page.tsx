@@ -199,83 +199,69 @@ export default function HomePage() {
       {/* Header */}
       <header className="no-print sticky top-0 z-40"
         style={{ backgroundColor: 'var(--black)', borderBottom: '1px solid #1f1f1f' }}>
-        <div style={{ maxWidth: 1280, margin: '0 auto', padding: '0 16px' }}>
-          <div className="flex items-center justify-between" style={{ height: 56 }}>
-            <div className="flex items-center gap-3">
-              {/* Back button when inside folder */}
+        <div style={{ maxWidth: 1280, margin: '0 auto', padding: '0 12px' }}>
+          <div className="flex items-center justify-between gap-2" style={{ height: 56 }}>
+
+            {/* Left: back + logo + title */}
+            <div className="flex items-center gap-2 min-w-0">
               {activeFolder && (
                 <button onClick={() => { setActiveFolder(null); setSearch('') }}
-                  className="flex items-center justify-center rounded-lg transition-colors hover:bg-white/10"
-                  style={{ width: 32, height: 32, color: '#888', marginRight: 4 }}>
-                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  className="flex items-center justify-center rounded-xl active:opacity-60"
+                  style={{ width: 44, height: 44, color: 'var(--white)', flexShrink: 0 }}>
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
                     <polyline points="15 18 9 12 15 6"/>
                   </svg>
                 </button>
               )}
-              <div className="flex items-center justify-center rounded-lg"
-                style={{ width: 32, height: 32, backgroundColor: 'var(--white)', flexShrink: 0 }}>
-                <svg width="18" height="18" viewBox="0 0 18 18" fill="none">
+              <div className="flex items-center justify-center rounded-lg shrink-0"
+                style={{ width: 32, height: 32, backgroundColor: 'var(--white)' }}>
+                <svg width="16" height="16" viewBox="0 0 18 18" fill="none">
                   <rect x="1" y="1" width="6" height="6" rx="1" fill="black"/>
                   <rect x="11" y="1" width="6" height="6" rx="1" fill="black"/>
                   <rect x="1" y="11" width="6" height="6" rx="1" fill="black"/>
                   <rect x="11" y="11" width="3" height="3" rx="0.5" fill="black"/>
-                  <rect x="15" y="11" width="2" height="2" rx="0.5" fill="black"/>
-                  <rect x="11" y="15" width="2" height="2" rx="0.5" fill="black"/>
                   <rect x="14" y="14" width="3" height="3" rx="0.5" fill="black"/>
                 </svg>
               </div>
-              <div>
-                <p className="font-display" style={{ fontSize: '0.95rem', fontWeight: 700, color: 'var(--white)', letterSpacing: '-0.02em', lineHeight: 1 }}>
-                  {activeFolder ? activeFolder.name : 'QR Admin'}
-                </p>
-                <p style={{ fontSize: '0.6rem', color: '#555', fontFamily: 'JetBrains Mono, monospace', letterSpacing: '0.1em', marginTop: 2 }}>
-                  {activeFolder ? 'MAPPE' : 'BUTIKKSTYRING'}
-                </p>
-              </div>
+              <p className="font-display truncate"
+                style={{ fontSize: '1rem', fontWeight: 700, color: 'var(--white)', letterSpacing: '-0.02em' }}>
+                {activeFolder ? activeFolder.name : 'QR Admin'}
+              </p>
             </div>
 
-            <div className="flex items-center gap-2">
-              {/* Print all (only inside folder) */}
+            {/* Right: actions */}
+            <div className="flex items-center gap-1 shrink-0">
               {activeFolder && filtered.length > 0 && (
                 <button onClick={() => setShowPrintAll(true)}
-                  className="flex items-center gap-2 rounded-lg px-3 py-2 transition-all hover:bg-white/10"
-                  style={{ color: '#888', fontSize: '0.75rem', fontFamily: 'Inter, sans-serif', fontWeight: 500 }}>
-                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  className="flex items-center justify-center rounded-xl active:opacity-60"
+                  style={{ width: 44, height: 44, color: '#888' }}>
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                     <polyline points="6 9 6 2 18 2 18 9"/>
                     <path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/>
                     <rect x="6" y="14" width="12" height="8"/>
                   </svg>
-                  Print alle
                 </button>
               )}
 
               {/* New button */}
-              {activeFolder ? (
-                <button onClick={() => { setEditCategory(null); setShowForm(true) }}
-                  className="flex items-center gap-2 rounded-lg px-4 py-2 transition-all hover:opacity-90 active:scale-95"
-                  style={{ backgroundColor: 'var(--white)', color: 'var(--black)', fontSize: '0.875rem', fontWeight: 600 }}>
-                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
-                    <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>
-                  </svg>
-                  Ny QR-kode
-                </button>
-              ) : (
-                <button onClick={() => { setEditFolder(null); setShowFolderForm(true) }}
-                  className="flex items-center gap-2 rounded-lg px-4 py-2 transition-all hover:opacity-90 active:scale-95"
-                  style={{ backgroundColor: 'var(--white)', color: 'var(--black)', fontSize: '0.875rem', fontWeight: 600 }}>
-                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
-                    <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>
-                  </svg>
-                  Ny mappe
-                </button>
-              )}
+              <button
+                onClick={() => activeFolder
+                  ? (setEditCategory(null), setShowForm(true))
+                  : (setEditFolder(null), setShowFolderForm(true))
+                }
+                className="flex items-center justify-center rounded-xl active:scale-95 active:opacity-80"
+                style={{ width: 44, height: 44, backgroundColor: 'var(--white)', color: 'var(--black)' }}>
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
+                  <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>
+                </svg>
+              </button>
 
-              {/* Admin-knapp */}
+              {/* Admin */}
               {userEmail && isAdmin(userEmail) && (
                 <Link href="/admin"
-                  className="flex items-center justify-center rounded-lg transition-colors hover:bg-white/10"
-                  style={{ width: 32, height: 32, color: '#888' }} title="Administrer brukere">
-                  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  className="flex items-center justify-center rounded-xl active:opacity-60"
+                  style={{ width: 44, height: 44, color: '#888' }}>
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                     <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/>
                     <circle cx="9" cy="7" r="4"/>
                     <path d="M23 21v-2a4 4 0 0 0-3-3.87"/>
@@ -284,21 +270,16 @@ export default function HomePage() {
                 </Link>
               )}
 
-              {/* User + sign out */}
-              <div className="flex items-center gap-2 pl-2" style={{ borderLeft: '1px solid #2a2a2a' }}>
-                <span style={{ fontSize: '0.75rem', color: '#666', fontFamily: 'Inter, sans-serif' }}>
-                  {userEmail?.split('@')[0]}
-                </span>
-                <button onClick={handleSignOut}
-                  className="flex items-center justify-center rounded-lg transition-colors hover:bg-white/10"
-                  style={{ width: 32, height: 32, color: '#888' }} title="Logg ut">
-                  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                    <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/>
-                    <polyline points="16 17 21 12 16 7"/>
-                    <line x1="21" y1="12" x2="9" y2="12"/>
-                  </svg>
-                </button>
-              </div>
+              {/* Sign out */}
+              <button onClick={handleSignOut}
+                className="flex items-center justify-center rounded-xl active:opacity-60"
+                style={{ width: 44, height: 44, color: '#888' }}>
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/>
+                  <polyline points="16 17 21 12 16 7"/>
+                  <line x1="21" y1="12" x2="9" y2="12"/>
+                </svg>
+              </button>
             </div>
           </div>
         </div>
