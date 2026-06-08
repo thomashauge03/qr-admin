@@ -1,63 +1,97 @@
-@import url('https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Syne:wght@400;500;600;700;800&family=DM+Sans:wght@300;400;500&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&family=Syne:wght@600;700;800&family=JetBrains+Mono:wght@400;500&display=swap');
 
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
 :root {
-  --ink: #0f0f0f;
-  --paper: #f5f2ed;
-  --paper-dark: #ebe7e0;
-  --accent: #e84e2a;
-  --accent-light: #ffeee9;
-  --muted: #8a857d;
-  --border: #d4cfc7;
-  --card: #ffffff;
-  --success: #2a7a4b;
+  --black:       #000000;
+  --white:       #ffffff;
+  --gray-50:     #fafafa;
+  --gray-100:    #f4f4f5;
+  --gray-200:    #e4e4e7;
+  --gray-300:    #d1d1d6;
+  --gray-500:    #71717a;
+  --gray-700:    #3f3f46;
+  --gray-900:    #18181b;
+  --danger:      #ef4444;
+  --danger-bg:   #fef2f2;
+  --success:     #22c55e;
+
+  --bg:          var(--gray-50);
+  --surface:     var(--white);
+  --border:      var(--gray-200);
+  --border-dark: var(--gray-300);
+  --ink:         var(--gray-900);
+  --muted:       var(--gray-500);
 }
 
-* { box-sizing: border-box; }
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+html { font-size: 16px; }
 
 body {
-  background-color: var(--paper);
+  background-color: var(--bg);
   color: var(--ink);
-  font-family: 'DM Sans', sans-serif;
-  font-weight: 300;
+  font-family: 'Inter', system-ui, sans-serif;
+  font-weight: 400;
   line-height: 1.6;
+  -webkit-font-smoothing: antialiased;
 }
 
-.font-display { font-family: 'Syne', sans-serif; }
-.font-mono-custom { font-family: 'DM Mono', monospace; }
+.font-display  { font-family: 'Syne', sans-serif; }
+.font-mono     { font-family: 'JetBrains Mono', monospace; }
 
-::-webkit-scrollbar { width: 6px; height: 6px; }
-::-webkit-scrollbar-track { background: var(--paper-dark); }
-::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
-::-webkit-scrollbar-thumb:hover { background: var(--muted); }
+/* Scrollbar */
+::-webkit-scrollbar       { width: 4px; height: 4px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--gray-300); border-radius: 2px; }
 
+/* ── Animations ──────────────────────────────────── */
+@keyframes fadeUp   { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+@keyframes fadeIn   { from { opacity: 0; } to { opacity: 1; } }
+@keyframes scaleIn  { from { opacity: 0; transform: scale(0.97); } to { opacity: 1; transform: scale(1); } }
+@keyframes shimmer  { from { background-position: -200% 0; } to { background-position: 200% 0; } }
+
+.anim-fade-up   { animation: fadeUp  0.25s cubic-bezier(0.22,1,0.36,1) both; }
+.anim-fade-in   { animation: fadeIn  0.2s ease both; }
+.anim-scale-in  { animation: scaleIn 0.2s cubic-bezier(0.22,1,0.36,1) both; }
+
+/* Stagger for grid/list items */
+.stagger > * { opacity: 0; }
+.stagger > *:nth-child(1)  { animation: fadeUp 0.3s cubic-bezier(0.22,1,0.36,1) 0.04s both; }
+.stagger > *:nth-child(2)  { animation: fadeUp 0.3s cubic-bezier(0.22,1,0.36,1) 0.08s both; }
+.stagger > *:nth-child(3)  { animation: fadeUp 0.3s cubic-bezier(0.22,1,0.36,1) 0.12s both; }
+.stagger > *:nth-child(4)  { animation: fadeUp 0.3s cubic-bezier(0.22,1,0.36,1) 0.16s both; }
+.stagger > *:nth-child(5)  { animation: fadeUp 0.3s cubic-bezier(0.22,1,0.36,1) 0.20s both; }
+.stagger > *:nth-child(6)  { animation: fadeUp 0.3s cubic-bezier(0.22,1,0.36,1) 0.24s both; }
+.stagger > *:nth-child(n+7){ animation: fadeUp 0.3s cubic-bezier(0.22,1,0.36,1) 0.28s both; }
+
+/* ── Base resets ─────────────────────────────────── */
+input, textarea, select {
+  font-family: inherit;
+  font-size: 0.875rem;
+  color: var(--ink);
+  background: var(--surface);
+  border: 1.5px solid var(--border);
+  border-radius: 10px;
+  padding: 10px 14px;
+  outline: none;
+  transition: border-color 0.15s, box-shadow 0.15s;
+  width: 100%;
+}
+input:focus, textarea:focus, select:focus {
+  border-color: var(--black);
+  box-shadow: 0 0 0 3px rgba(0,0,0,0.06);
+}
+
+/* ── Print ───────────────────────────────────────── */
 @media print {
   body { background: white !important; }
   .no-print { display: none !important; }
-  .print-area { display: block !important; }
 }
 
-@keyframes fadeUp {
-  from { opacity: 0; transform: translateY(12px); }
-  to { opacity: 1; transform: translateY(0); }
+/* ── Reduced motion ──────────────────────────────── */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation-duration: 0.01ms !important; transition-duration: 0.01ms !important; }
 }
-
-@keyframes slideIn {
-  from { opacity: 0; transform: translateX(-8px); }
-  to { opacity: 1; transform: translateX(0); }
-}
-
-.animate-fade-up { animation: fadeUp 0.3s ease forwards; }
-.animate-slide-in { animation: slideIn 0.25s ease forwards; }
-
-.stagger > * { opacity: 0; }
-.stagger > *:nth-child(1) { animation: fadeUp 0.3s ease 0.05s forwards; }
-.stagger > *:nth-child(2) { animation: fadeUp 0.3s ease 0.10s forwards; }
-.stagger > *:nth-child(3) { animation: fadeUp 0.3s ease 0.15s forwards; }
-.stagger > *:nth-child(4) { animation: fadeUp 0.3s ease 0.20s forwards; }
-.stagger > *:nth-child(5) { animation: fadeUp 0.3s ease 0.25s forwards; }
-.stagger > *:nth-child(6) { animation: fadeUp 0.3s ease 0.30s forwards; }
-.stagger > *:nth-child(n+7) { animation: fadeUp 0.3s ease 0.35s forwards; }
