@@ -10,8 +10,14 @@ CREATE TABLE IF NOT EXISTS categories (
   shelf_number  TEXT NOT NULL,
   description   TEXT,
   color         TEXT,
+  qr_type       TEXT DEFAULT 'shop',
+  qr_data       JSONB,
   created_at    TIMESTAMPTZ DEFAULT NOW()
 );
+
+-- Migrering for eksisterende tabeller (kjør om tabellen allerede finnes)
+ALTER TABLE categories ADD COLUMN IF NOT EXISTS qr_type TEXT DEFAULT 'shop';
+ALTER TABLE categories ADD COLUMN IF NOT EXISTS qr_data JSONB;
 
 -- Indekser for rask søking
 CREATE INDEX IF NOT EXISTS idx_categories_name         ON categories (name);

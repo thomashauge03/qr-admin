@@ -1,6 +1,6 @@
 'use client'
 import { QRCodeSVG } from 'qrcode.react'
-import { Category } from '@/types'
+import { Category, buildQRValue } from '@/types'
 
 interface Props {
   category: Category
@@ -11,7 +11,7 @@ interface Props {
 
 export default function CategoryCard({ category, onEdit, onDelete, onPrint }: Props) {
   const accent = category.color || '#0f0f0f'
-  const qrValue = JSON.stringify({ id: category.id, name: category.name, shelf: category.shelf_number })
+  const qrValue = buildQRValue(category)
 
   return (
     <div
