@@ -4,7 +4,6 @@ import { useSearchParams } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 import { Capacitor } from '@capacitor/core'
 import { Browser } from '@capacitor/browser'
-import { App } from '@capacitor/app'
 
 function LoginForm() {
   const [loading, setLoading] = useState(false)
@@ -37,11 +36,11 @@ function LoginForm() {
       if (error) { setError(error.message); setLoading(false); return }
       if (data.url) {
         // Sett opp deep-link lytter FØR vi åpner nettleseren
+        const { App } = await import('@capacitor/app')
         const appUrlListener = await App.addListener('appUrlOpen', async ({ url }) => {
           if (url.startsWith('no.haugemaskin.qradmin://callback')) {
             appUrlListener.remove()
             await Browser.close()
-            // Hent tokens fra URL-hash
             const hash = url.split('#')[1] || ''
             const params = new URLSearchParams(hash)
             const access_token = params.get('access_token')
