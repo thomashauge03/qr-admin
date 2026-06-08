@@ -170,7 +170,9 @@ export default function HomePage() {
 
   // --- Filtered categories for active view ---
   const visibleCategories = activeFolder
-    ? categories.filter(c => c.folder_id === activeFolder.id)
+    ? activeFolder.id === '__unfiled__'
+      ? categories.filter(c => c.folder_id === null)
+      : categories.filter(c => c.folder_id === activeFolder.id)
     : categories.filter(c => c.folder_id === null)
 
   const filtered = visibleCategories
