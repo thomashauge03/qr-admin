@@ -43,6 +43,7 @@ export default function HomePage() {
   const [showFolderForm, setShowFolderForm] = useState(false)
   const [editFolder,     setEditFolder]     = useState<Folder | null>(null)
   const [folderDeleteConfirm, setFolderDeleteConfirm] = useState<string | null>(null)
+  const [showMenu, setShowMenu] = useState(false)
 
   // Auth — sjekk session + profil-status
   useEffect(() => {
@@ -196,15 +197,49 @@ export default function HomePage() {
   return (
     <div style={{ minHeight: '100dvh', backgroundColor: 'var(--bg)' }}>
 
-      {/* Header */}
+      {/* Menu backdrop */}
+      {showMenu && (
+        <div className="fixed inset-0 z-50" onClick={() => setShowMenu(false)}>
+          <div className="absolute rounded-2xl overflow-hidden anim-scale-in"
+            style={{ top: 'calc(52px + env(safe-area-inset-top, 0px) + 8px)', right: 10,
+              backgroundColor: '#1a1a1a', border: '1px solid #333', minWidth: 180 }}
+            onClick={e => e.stopPropagation()}>
+            {userEmail && isAdmin(userEmail) && (
+              <Link href="/admin" onClick={() => setShowMenu(false)}
+                className="flex items-center gap-3 active:opacity-60"
+                style={{ padding: '14px 16px', color: 'var(--white)', borderBottom: '1px solid #333' }}>
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/>
+                  <circle cx="9" cy="7" r="4"/>
+                  <path d="M23 21v-2a4 4 0 0 0-3-3.87"/>
+                  <path d="M16 3.13a4 4 0 0 1 0 7.75"/>
+                </svg>
+                <span style={{ fontSize: '0.9rem', fontWeight: 500 }}>Administrer brukere</span>
+              </Link>
+            )}
+            <button onClick={() => { setShowMenu(false); handleSignOut() }}
+              className="flex items-center gap-3 w-full active:opacity-60"
+              style={{ padding: '14px 16px', color: '#ef4444' }}>
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/>
+                <polyline points="16 17 21 12 16 7"/>
+                <line x1="21" y1="12" x2="9" y2="12"/>
+              </svg>
+              <span style={{ fontSize: '0.9rem', fontWeight: 500 }}>Logg ut</span>
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Header — kun 3 elementer maks */}
       <header className="no-print"
         style={{ position: 'fixed', top: 0, left: 0, right: 0, zIndex: 40,
           backgroundColor: 'var(--black)', borderBottom: '1px solid #1f1f1f',
           width: '100%', paddingTop: 'env(safe-area-inset-top, 0px)' }}>
         <div style={{ padding: '0 10px' }}>
-          <div className="flex items-center" style={{ height: 52, gap: 4 }}>
+          <div className="flex items-center" style={{ height: 52, gap: 6 }}>
 
-            {/* Back OR logo */}
+            {/* Tilbake ELLER logo */}
             {activeFolder ? (
               <button onClick={() => { setActiveFolder(null); setSearch('') }}
                 className="flex items-center justify-center rounded-xl active:opacity-60 shrink-0"
@@ -215,7 +250,7 @@ export default function HomePage() {
               </button>
             ) : (
               <div className="flex items-center justify-center rounded-lg shrink-0"
-                style={{ width: 30, height: 30, backgroundColor: 'var(--white)', marginRight: 2 }}>
+                style={{ width: 30, height: 30, backgroundColor: 'var(--white)' }}>
                 <svg width="14" height="14" viewBox="0 0 18 18" fill="none">
                   <rect x="1" y="1" width="6" height="6" rx="1" fill="black"/>
                   <rect x="11" y="1" width="6" height="6" rx="1" fill="black"/>
@@ -226,59 +261,33 @@ export default function HomePage() {
               </div>
             )}
 
-            {/* Title — takes all remaining space */}
+            {/* Tittel */}
             <p className="font-display flex-1 min-w-0 truncate"
               style={{ fontSize: '0.95rem', fontWeight: 700, color: 'var(--white)', letterSpacing: '-0.02em' }}>
               {activeFolder ? activeFolder.name : 'QR Admin'}
             </p>
 
-            {/* Right icons — max 3, always 40px */}
-            {activeFolder && filtered.length > 0 && (
-              <button onClick={() => setShowPrintAll(true)}
-                className="flex items-center justify-center rounded-xl active:opacity-60 shrink-0"
-                style={{ width: 40, height: 40, color: '#777' }}>
-                <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                  <polyline points="6 9 6 2 18 2 18 9"/>
-                  <path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/>
-                  <rect x="6" y="14" width="12" height="8"/>
-                </svg>
-              </button>
-            )}
-
-            {/* + Ny */}
+            {/* + Ny (primærhandling) */}
             <button
               onClick={() => activeFolder
                 ? (setEditCategory(null), setShowForm(true))
                 : (setEditFolder(null), setShowFolderForm(true))
               }
-              className="flex items-center justify-center rounded-xl active:scale-95 active:opacity-80 shrink-0"
+              className="flex items-center justify-center rounded-xl active:scale-95 shrink-0"
               style={{ width: 40, height: 40, backgroundColor: 'var(--white)', color: 'var(--black)' }}>
               <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
                 <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>
               </svg>
             </button>
 
-            {/* Meny: admin + logg ut samlet i ett dropdown-aktig */}
-            {userEmail && isAdmin(userEmail) && (
-              <Link href="/admin"
-                className="flex items-center justify-center rounded-xl active:opacity-60 shrink-0"
-                style={{ width: 40, height: 40, color: '#777' }}>
-                <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                  <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/>
-                  <circle cx="9" cy="7" r="4"/>
-                  <path d="M23 21v-2a4 4 0 0 0-3-3.87"/>
-                  <path d="M16 3.13a4 4 0 0 1 0 7.75"/>
-                </svg>
-              </Link>
-            )}
-
-            <button onClick={handleSignOut}
+            {/* ⋮ Meny */}
+            <button onClick={() => setShowMenu(m => !m)}
               className="flex items-center justify-center rounded-xl active:opacity-60 shrink-0"
               style={{ width: 40, height: 40, color: '#777' }}>
-              <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/>
-                <polyline points="16 17 21 12 16 7"/>
-                <line x1="21" y1="12" x2="9" y2="12"/>
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
+                <circle cx="12" cy="5" r="1" fill="currentColor"/>
+                <circle cx="12" cy="12" r="1" fill="currentColor"/>
+                <circle cx="12" cy="19" r="1" fill="currentColor"/>
               </svg>
             </button>
           </div>
