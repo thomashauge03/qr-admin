@@ -1,10 +1,11 @@
 'use client'
+import React from 'react'
 import { QRCodeSVG } from 'qrcode.react'
 import { Category, buildQRValue } from '@/types'
 
-const QR_TYPE_ICON: Record<string, string> = {
-  url: '🔗', text: '✏', email: '✉', phone: '📞',
-  sms: '💬', wifi: '📶', location: '📍', shop: '▦',
+const QR_TYPE_LABEL: Record<string, string> = {
+  url: 'URL', text: 'Tekst', email: 'E-post', phone: 'Telefon',
+  sms: 'SMS', wifi: 'WiFi', location: 'Lokasjon', shop: 'Butikk',
 }
 
 interface Props {
@@ -37,12 +38,12 @@ export default function CategoryCard({ category, onEdit, onDelete, onPrint }: Pr
             </h3>
             <div className="flex items-center gap-2 mt-1.5">
               <span className="rounded-md px-2 py-0.5"
-                style={{ fontSize: '0.68rem', fontFamily: 'JetBrains Mono, monospace', letterSpacing: '0.05em',
+                style={{ fontSize: '0.75rem', fontFamily: 'JetBrains Mono, monospace', letterSpacing: '0.04em',
                   backgroundColor: 'var(--gray-100)', color: 'var(--gray-700)' }}>
                 {category.shelf_number}
               </span>
-              <span style={{ fontSize: '0.68rem', color: 'var(--muted)', fontFamily: 'JetBrains Mono, monospace' }}>
-                {QR_TYPE_ICON[qrType]} {qrType.toUpperCase()}
+              <span style={{ fontSize: '0.75rem', color: 'var(--muted)', fontFamily: 'Inter, sans-serif', fontWeight: 500 }}>
+                {QR_TYPE_LABEL[qrType] || qrType}
               </span>
             </div>
           </div>
@@ -63,7 +64,7 @@ export default function CategoryCard({ category, onEdit, onDelete, onPrint }: Pr
         )}
 
         {/* Date */}
-        <p style={{ fontSize: '0.68rem', color: 'var(--gray-300)', fontFamily: 'JetBrains Mono, monospace', marginBottom: 12 }}>
+        <p style={{ fontSize: '0.75rem', color: 'var(--gray-300)', fontFamily: 'JetBrains Mono, monospace', marginBottom: 12 }}>
           {new Date(category.created_at).toLocaleDateString('no-NO', { day: '2-digit', month: 'short', year: 'numeric' })}
         </p>
       </div>
@@ -91,8 +92,9 @@ export default function CategoryCard({ category, onEdit, onDelete, onPrint }: Pr
           },
         ].map((btn, i) => (
           <button key={btn.label} onClick={btn.fn}
-            className="flex-1 flex items-center justify-center gap-1.5 py-3 transition-colors text-xs font-medium"
+            className="flex-1 flex items-center justify-center gap-1.5 transition-colors text-xs font-medium"
             style={{
+              minHeight: 44,
               color: btn.danger ? 'var(--danger)' : 'var(--muted)',
               fontFamily: 'Inter, sans-serif',
               borderLeft: i > 0 ? '1px solid var(--border)' : 'none',

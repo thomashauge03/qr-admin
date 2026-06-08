@@ -1,5 +1,5 @@
 'use client'
-import { useState, useEffect } from 'react'
+import React, { useState, useEffect } from 'react'
 import { Category, CategoryInsert, QRType, QRData } from '@/types'
 
 const PRESET_COLORS = [
@@ -7,15 +7,26 @@ const PRESET_COLORS = [
   '#22c55e', '#3b82f6', '#8b5cf6', '#ec4899',
 ]
 
-const QR_TYPES: { value: QRType; label: string; icon: string }[] = [
-  { value: 'shop',     icon: '▦', label: 'Butikk'   },
-  { value: 'url',      icon: '🔗', label: 'URL'      },
-  { value: 'text',     icon: '✏', label: 'Tekst'    },
-  { value: 'email',    icon: '✉', label: 'E-post'   },
-  { value: 'phone',    icon: '📞', label: 'Telefon'  },
-  { value: 'sms',      icon: '💬', label: 'SMS'      },
-  { value: 'wifi',     icon: '📶', label: 'WiFi'     },
-  { value: 'location', icon: '📍', label: 'Lokasjon' },
+const QR_TYPE_ICONS: Record<QRType, React.ReactNode> = {
+  shop:     <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="4" height="4" rx="0.5"/><rect x="19" y="14" width="2" height="2" rx="0.5"/><rect x="14" y="19" width="2" height="2" rx="0.5"/><rect x="18" y="18" width="3" height="3" rx="0.5"/></svg>,
+  url:      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>,
+  text:     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><line x1="17" y1="10" x2="3" y2="10"/><line x1="21" y1="6" x2="3" y2="6"/><line x1="21" y1="14" x2="3" y2="14"/><line x1="17" y1="18" x2="3" y2="18"/></svg>,
+  email:    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg>,
+  phone:    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07A19.5 19.5 0 0 1 4.69 12a19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 3.6 1.18h3a2 2 0 0 1 2 1.72c.127.96.361 1.903.7 2.81a2 2 0 0 1-.45 2.11L7.91 8.18a16 16 0 0 0 6 6l.94-.94a2 2 0 0 1 2.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0 1 22 16.92z"/></svg>,
+  sms:      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>,
+  wifi:     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M5 12.55a11 11 0 0 1 14.08 0"/><path d="M1.42 9a16 16 0 0 1 21.16 0"/><path d="M8.53 16.11a6 6 0 0 1 6.95 0"/><circle cx="12" cy="20" r="1" fill="currentColor"/></svg>,
+  location: <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>,
+}
+
+const QR_TYPES: { value: QRType; label: string }[] = [
+  { value: 'shop',     label: 'Butikk'   },
+  { value: 'url',      label: 'URL'      },
+  { value: 'text',     label: 'Tekst'    },
+  { value: 'email',    label: 'E-post'   },
+  { value: 'phone',    label: 'Telefon'  },
+  { value: 'sms',      label: 'SMS'      },
+  { value: 'wifi',     label: 'WiFi'     },
+  { value: 'location', label: 'Lokasjon' },
 ]
 
 interface Props {
@@ -155,9 +166,9 @@ export default function CategoryForm({ category, onSave, onClose }: Props) {
                       color:           qrType === t.value ? 'var(--white)' : 'var(--muted)',
                       border:          `1.5px solid ${qrType === t.value ? 'var(--black)' : 'var(--border)'}`,
                     }}>
-                    <div style={{ fontSize: '1rem', marginBottom: 2 }}>{t.icon}</div>
-                    <div style={{ fontFamily: 'JetBrains Mono, monospace', fontSize: '0.58rem', letterSpacing: '0.04em' }}>
-                      {t.label.toUpperCase()}
+                    <div className="flex justify-center mb-1">{QR_TYPE_ICONS[t.value]}</div>
+                    <div style={{ fontFamily: 'Inter, sans-serif', fontSize: '0.7rem', fontWeight: 500, letterSpacing: '0.01em' }}>
+                      {t.label}
                     </div>
                   </button>
                 ))}
