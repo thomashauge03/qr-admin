@@ -201,23 +201,22 @@ export default function HomePage() {
         style={{ position: 'fixed', top: 0, left: 0, right: 0, zIndex: 40,
           backgroundColor: 'var(--black)', borderBottom: '1px solid #1f1f1f',
           width: '100%', paddingTop: 'env(safe-area-inset-top, 0px)' }}>
-        <div style={{ maxWidth: 1280, margin: '0 auto', padding: '0 12px' }}>
-          <div className="flex items-center justify-between gap-2" style={{ height: 56 }}>
+        <div style={{ padding: '0 10px' }}>
+          <div className="flex items-center" style={{ height: 52, gap: 4 }}>
 
-            {/* Left: back + logo + title */}
-            <div className="flex items-center gap-2 min-w-0">
-              {activeFolder && (
-                <button onClick={() => { setActiveFolder(null); setSearch('') }}
-                  className="flex items-center justify-center rounded-xl active:opacity-60"
-                  style={{ width: 44, height: 44, color: 'var(--white)', flexShrink: 0 }}>
-                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
-                    <polyline points="15 18 9 12 15 6"/>
-                  </svg>
-                </button>
-              )}
+            {/* Back OR logo */}
+            {activeFolder ? (
+              <button onClick={() => { setActiveFolder(null); setSearch('') }}
+                className="flex items-center justify-center rounded-xl active:opacity-60 shrink-0"
+                style={{ width: 40, height: 40, color: 'var(--white)' }}>
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
+                  <polyline points="15 18 9 12 15 6"/>
+                </svg>
+              </button>
+            ) : (
               <div className="flex items-center justify-center rounded-lg shrink-0"
-                style={{ width: 32, height: 32, backgroundColor: 'var(--white)' }}>
-                <svg width="16" height="16" viewBox="0 0 18 18" fill="none">
+                style={{ width: 30, height: 30, backgroundColor: 'var(--white)', marginRight: 2 }}>
+                <svg width="14" height="14" viewBox="0 0 18 18" fill="none">
                   <rect x="1" y="1" width="6" height="6" rx="1" fill="black"/>
                   <rect x="11" y="1" width="6" height="6" rx="1" fill="black"/>
                   <rect x="1" y="11" width="6" height="6" rx="1" fill="black"/>
@@ -225,64 +224,63 @@ export default function HomePage() {
                   <rect x="14" y="14" width="3" height="3" rx="0.5" fill="black"/>
                 </svg>
               </div>
-              <p className="font-display truncate"
-                style={{ fontSize: '1rem', fontWeight: 700, color: 'var(--white)', letterSpacing: '-0.02em' }}>
-                {activeFolder ? activeFolder.name : 'QR Admin'}
-              </p>
-            </div>
+            )}
 
-            {/* Right: actions */}
-            <div className="flex items-center gap-1 shrink-0">
-              {activeFolder && filtered.length > 0 && (
-                <button onClick={() => setShowPrintAll(true)}
-                  className="flex items-center justify-center rounded-xl active:opacity-60"
-                  style={{ width: 44, height: 44, color: '#888' }}>
-                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                    <polyline points="6 9 6 2 18 2 18 9"/>
-                    <path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/>
-                    <rect x="6" y="14" width="12" height="8"/>
-                  </svg>
-                </button>
-              )}
+            {/* Title — takes all remaining space */}
+            <p className="font-display flex-1 min-w-0 truncate"
+              style={{ fontSize: '0.95rem', fontWeight: 700, color: 'var(--white)', letterSpacing: '-0.02em' }}>
+              {activeFolder ? activeFolder.name : 'QR Admin'}
+            </p>
 
-              {/* New button */}
-              <button
-                onClick={() => activeFolder
-                  ? (setEditCategory(null), setShowForm(true))
-                  : (setEditFolder(null), setShowFolderForm(true))
-                }
-                className="flex items-center justify-center rounded-xl active:scale-95 active:opacity-80"
-                style={{ width: 44, height: 44, backgroundColor: 'var(--white)', color: 'var(--black)' }}>
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
-                  <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>
+            {/* Right icons — max 3, always 40px */}
+            {activeFolder && filtered.length > 0 && (
+              <button onClick={() => setShowPrintAll(true)}
+                className="flex items-center justify-center rounded-xl active:opacity-60 shrink-0"
+                style={{ width: 40, height: 40, color: '#777' }}>
+                <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <polyline points="6 9 6 2 18 2 18 9"/>
+                  <path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/>
+                  <rect x="6" y="14" width="12" height="8"/>
                 </svg>
               </button>
+            )}
 
-              {/* Admin */}
-              {userEmail && isAdmin(userEmail) && (
-                <Link href="/admin"
-                  className="flex items-center justify-center rounded-xl active:opacity-60"
-                  style={{ width: 44, height: 44, color: '#888' }}>
-                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                    <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/>
-                    <circle cx="9" cy="7" r="4"/>
-                    <path d="M23 21v-2a4 4 0 0 0-3-3.87"/>
-                    <path d="M16 3.13a4 4 0 0 1 0 7.75"/>
-                  </svg>
-                </Link>
-              )}
+            {/* + Ny */}
+            <button
+              onClick={() => activeFolder
+                ? (setEditCategory(null), setShowForm(true))
+                : (setEditFolder(null), setShowFolderForm(true))
+              }
+              className="flex items-center justify-center rounded-xl active:scale-95 active:opacity-80 shrink-0"
+              style={{ width: 40, height: 40, backgroundColor: 'var(--white)', color: 'var(--black)' }}>
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
+                <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>
+              </svg>
+            </button>
 
-              {/* Sign out */}
-              <button onClick={handleSignOut}
-                className="flex items-center justify-center rounded-xl active:opacity-60"
-                style={{ width: 44, height: 44, color: '#888' }}>
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                  <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/>
-                  <polyline points="16 17 21 12 16 7"/>
-                  <line x1="21" y1="12" x2="9" y2="12"/>
+            {/* Meny: admin + logg ut samlet i ett dropdown-aktig */}
+            {userEmail && isAdmin(userEmail) && (
+              <Link href="/admin"
+                className="flex items-center justify-center rounded-xl active:opacity-60 shrink-0"
+                style={{ width: 40, height: 40, color: '#777' }}>
+                <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/>
+                  <circle cx="9" cy="7" r="4"/>
+                  <path d="M23 21v-2a4 4 0 0 0-3-3.87"/>
+                  <path d="M16 3.13a4 4 0 0 1 0 7.75"/>
                 </svg>
-              </button>
-            </div>
+              </Link>
+            )}
+
+            <button onClick={handleSignOut}
+              className="flex items-center justify-center rounded-xl active:opacity-60 shrink-0"
+              style={{ width: 40, height: 40, color: '#777' }}>
+              <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/>
+                <polyline points="16 17 21 12 16 7"/>
+                <line x1="21" y1="12" x2="9" y2="12"/>
+              </svg>
+            </button>
           </div>
         </div>
       </header>
