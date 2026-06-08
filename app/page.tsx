@@ -245,7 +245,7 @@ export default function HomePage() {
       {/* Header — kun 3 elementer maks */}
       <header className="no-print"
         style={{ position: 'fixed', top: 0, left: 0, right: 0, zIndex: 40,
-          backgroundColor: 'var(--black)', borderBottom: '1px solid #1f1f1f',
+          backgroundColor: '#1a1aff', borderBottom: '1px solid #0000cc',
           width: '100%', paddingTop: 'env(safe-area-inset-top, 0px)' }}>
         <div style={{ padding: '0 10px' }}>
           <div className="flex items-center" style={{ height: 52, gap: 6 }}>
