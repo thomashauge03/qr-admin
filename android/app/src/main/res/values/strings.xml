@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">QR Admin</string>
+    <string name="title_activity_main">QR Admin</string>
+    <string name="package_name">no.haugemaskin.qradmin</string>
+    <string name="custom_url_scheme">no.haugemaskin.qradmin</string>
+</resources>
