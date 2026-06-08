@@ -76,8 +76,9 @@ export default function AdminPage() {
     <div style={{ minHeight: '100dvh', backgroundColor: 'var(--bg)' }}>
 
       {/* Header */}
-      <header className="sticky top-0 z-40"
-        style={{ backgroundColor: 'var(--black)', borderBottom: '1px solid #1f1f1f' }}>
+      <header style={{ position: 'fixed', top: 0, left: 0, right: 0, zIndex: 40,
+        backgroundColor: 'var(--black)', borderBottom: '1px solid #1f1f1f',
+        width: '100%', paddingTop: 'env(safe-area-inset-top, 0px)' }}>
         <div style={{ maxWidth: 960, margin: '0 auto', padding: '0 16px' }}>
           <div className="flex items-center justify-between" style={{ height: 56 }}>
             <div className="flex items-center gap-3">
@@ -120,7 +121,9 @@ export default function AdminPage() {
         </div>
       </header>
 
-      <main style={{ maxWidth: 960, margin: '0 auto', padding: '20px 16px 40px' }}>
+      <main style={{ maxWidth: 960, margin: '0 auto',
+        paddingTop: 'calc(56px + env(safe-area-inset-top, 0px) + 16px)',
+        paddingLeft: 16, paddingRight: 16, paddingBottom: 40 }}>
 
         {/* Stats */}
         <div className="flex gap-3 mb-6 overflow-x-auto pb-1" style={{ scrollbarWidth: 'none' }}>

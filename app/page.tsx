@@ -197,8 +197,10 @@ export default function HomePage() {
     <div style={{ minHeight: '100dvh', backgroundColor: 'var(--bg)' }}>
 
       {/* Header */}
-      <header className="no-print sticky top-0 z-40"
-        style={{ backgroundColor: 'var(--black)', borderBottom: '1px solid #1f1f1f' }}>
+      <header className="no-print"
+        style={{ position: 'fixed', top: 0, left: 0, right: 0, zIndex: 40,
+          backgroundColor: 'var(--black)', borderBottom: '1px solid #1f1f1f',
+          width: '100%', paddingTop: 'env(safe-area-inset-top, 0px)' }}>
         <div style={{ maxWidth: 1280, margin: '0 auto', padding: '0 12px' }}>
           <div className="flex items-center justify-between gap-2" style={{ height: 56 }}>
 
@@ -285,7 +287,9 @@ export default function HomePage() {
         </div>
       </header>
 
-      <main style={{ maxWidth: 1280, margin: '0 auto', padding: '16px 12px 80px' }}>
+      <main style={{ maxWidth: 1280, margin: '0 auto',
+        paddingTop: 'calc(56px + env(safe-area-inset-top, 0px) + 16px)',
+        paddingLeft: 12, paddingRight: 12, paddingBottom: 80 }}>
 
         {/* ====== MAPPE-VISNING ====== */}
         {!activeFolder && (
