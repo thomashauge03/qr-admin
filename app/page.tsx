@@ -285,7 +285,7 @@ export default function HomePage() {
         </div>
       </header>
 
-      <main style={{ maxWidth: 1280, margin: '0 auto', padding: '20px 16px 40px' }}>
+      <main style={{ maxWidth: 1280, margin: '0 auto', padding: '16px 12px 80px' }}>
 
         {/* ====== MAPPE-VISNING ====== */}
         {!activeFolder && (

@@ -86,10 +86,10 @@ export default function CategoryForm({ category, onSave, onClose }: Props) {
   )
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 anim-fade-in"
+    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center sm:p-4 anim-fade-in"
       style={{ backgroundColor: 'rgba(0,0,0,0.5)' }}>
-      <div className="anim-scale-in w-full max-w-lg rounded-2xl shadow-xl overflow-y-auto"
-        style={{ backgroundColor: 'var(--surface)', border: '1px solid var(--border)', maxHeight: '92dvh' }}>
+      <div className="anim-scale-in w-full max-w-lg shadow-xl overflow-y-auto rounded-t-2xl sm:rounded-2xl"
+        style={{ backgroundColor: 'var(--surface)', border: '1px solid var(--border)', maxHeight: '94dvh' }}>
 
         {/* Modal header */}
         <div className="flex items-center justify-between px-7 py-5"
