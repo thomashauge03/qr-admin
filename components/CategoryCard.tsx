@@ -35,8 +35,7 @@ export default function CategoryCard({ category, onEdit, onDelete, onPrint }: Pr
 
           {/* Info */}
           <div className="flex-1 min-w-0">
-            <h3 className="font-display"
-              style={{ fontSize: '1rem', fontWeight: 700, letterSpacing: '-0.02em', lineHeight: 1.3, color: 'var(--ink)', wordBreak: 'break-word' }}>
+            <h3 style={{ fontSize: '1rem', fontWeight: 700, lineHeight: 1.3, color: 'var(--ink)', wordBreak: 'break-word', fontVariantNumeric: 'slashed-zero' }}>
               {category.name}
             </h3>
             <div className="flex items-center gap-2 mt-1.5 flex-wrap">

@@ -30,8 +30,7 @@ export default function FolderCard({ folder, count, onClick, onEdit, onDelete }:
               </svg>
             </div>
             <div>
-              <h3 className="font-display"
-                style={{ fontSize: '1.05rem', fontWeight: 700, letterSpacing: '-0.02em', color: 'var(--ink)', lineHeight: 1.3 }}>
+              <h3 style={{ fontSize: '1.05rem', fontWeight: 700, color: 'var(--ink)', lineHeight: 1.3, fontVariantNumeric: 'slashed-zero' }}>
                 {folder.name}
               </h3>
               <p style={{ fontSize: '0.85rem', color: 'var(--muted)', marginTop: 2 }}>
