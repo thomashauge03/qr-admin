@@ -71,6 +71,7 @@ export default function CategoryForm({ category, onSave, onClose }: Props) {
         description: description.trim() || null,
         color, qr_type: qrType,
         qr_data: { ...qrData, type: qrType },
+        folder_id: null,
       })
       onClose()
     } catch (err: unknown) {

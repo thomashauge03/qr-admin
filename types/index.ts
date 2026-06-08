@@ -18,6 +18,15 @@ export interface QRData {
   location_label?: string
 }
 
+export interface Folder {
+  id: string
+  name: string
+  color: string | null
+  created_at: string
+}
+
+export type FolderInsert = Omit<Folder, 'id' | 'created_at'>
+
 export interface Category {
   id: string
   name: string
@@ -26,6 +35,7 @@ export interface Category {
   color: string | null
   qr_type: QRType | null
   qr_data: QRData | null
+  folder_id: string | null
   created_at: string
 }
 

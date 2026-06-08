@@ -2,6 +2,8 @@
 import { Suspense, useState, useEffect } from 'react'
 import { useSearchParams } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
+import { Capacitor } from '@capacitor/core'
+import { Browser } from '@capacitor/browser'
 
 function LoginForm() {
   const [loading, setLoading] = useState(false)
@@ -9,19 +11,46 @@ function LoginForm() {
   const searchParams = useSearchParams()
 
   useEffect(() => {
-    if (searchParams.get('error') === 'unauthorized') {
-      setError('Denne Google-kontoen har ikke tilgang. Kontakt administrator.')
-    }
+    const err = searchParams.get('error')
+    if (err === 'unauthorized') setError('Denne Google-kontoen har ikke tilgang. Kontakt administrator.')
+    if (err === 'rejected') setError('Kontoen din har blitt avvist. Kontakt administrator.')
   }, [searchParams])
 
   const handleGoogle = async () => {
     setLoading(true)
     setError('')
-    const { error } = await supabase.auth.signInWithOAuth({
-      provider: 'google',
-      options: { redirectTo: `${window.location.origin}/` },
-    })
-    if (error) { setError(error.message); setLoading(false) }
+
+    const isNative = Capacitor.isNativePlatform()
+
+    if (isNative) {
+      // Mobil: åpne OAuth i innebygd nettleser, redirect tilbake via Supabase
+      const { data, error } = await supabase.auth.signInWithOAuth({
+        provider: 'google',
+        options: {
+          redirectTo: 'https://qr-admin-fawn.vercel.app/',
+          skipBrowserRedirect: true,
+        },
+      })
+      if (error) { setError(error.message); setLoading(false); return }
+      if (data.url) {
+        await Browser.open({ url: data.url })
+        // Lytt på app-resume for å sjekke session etter innlogging
+        const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+          if (event === 'SIGNED_IN' && session) {
+            subscription.unsubscribe()
+            Browser.close()
+            window.location.href = '/'
+          }
+        })
+      }
+    } else {
+      // Web: vanlig redirect
+      const { error } = await supabase.auth.signInWithOAuth({
+        provider: 'google',
+        options: { redirectTo: `${window.location.origin}/` },
+      })
+      if (error) { setError(error.message); setLoading(false) }
+    }
   }
 
   return (

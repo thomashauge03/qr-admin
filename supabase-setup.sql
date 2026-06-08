@@ -19,6 +19,19 @@ CREATE TABLE IF NOT EXISTS categories (
 ALTER TABLE categories ADD COLUMN IF NOT EXISTS qr_type TEXT DEFAULT 'shop';
 ALTER TABLE categories ADD COLUMN IF NOT EXISTS qr_data JSONB;
 
+-- Mapper
+CREATE TABLE IF NOT EXISTS folders (
+  id         UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  name       TEXT NOT NULL,
+  color      TEXT DEFAULT '#000000',
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+ALTER TABLE folders ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "Allow all for authenticated" ON folders FOR ALL USING (true) WITH CHECK (true);
+
+-- Koble kategorier til mapper
+ALTER TABLE categories ADD COLUMN IF NOT EXISTS folder_id UUID REFERENCES folders(id) ON DELETE SET NULL;
+
 -- Indekser for rask søking
 CREATE INDEX IF NOT EXISTS idx_categories_name         ON categories (name);
 CREATE INDEX IF NOT EXISTS idx_categories_shelf_number ON categories (shelf_number);
