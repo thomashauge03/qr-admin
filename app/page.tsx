@@ -481,7 +481,7 @@ export default function HomePage() {
                   style={{ borderRadius: 10, fontFamily: 'Inter, sans-serif', fontSize: '0.875rem' }}>
                   <option value="created_at">Nyeste først</option>
                   <option value="name">Navn A–Å</option>
-                  <option value="shelf_number">Hyllenummer</option>
+                  <option value="shelf_number">Utstyr nummer</option>
                 </select>
                 {filtered.length > 0 && (
                   <button onClick={() => setShowPrintAll(true)}

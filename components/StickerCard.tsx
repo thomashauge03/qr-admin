@@ -2,7 +2,7 @@
 
 import type { CSSProperties } from 'react'
 import { QRCodeSVG } from 'qrcode.react'
-import { Category } from '@/types'
+import { Category, buildQRValue } from '@/types'
 
 interface Props {
   category: Category
@@ -28,9 +28,16 @@ const SANS = 'Inter, system-ui, sans-serif'
 const MONO = 'JetBrains Mono, ui-monospace, monospace'
 const NUM: CSSProperties = { fontVariantNumeric: 'slashed-zero tabular-nums' }
 
+// Teksten foran nummeret i badgen. Kortes ned på smale etiketter, ellers
+// presser den nummeret ut av feltet.
+const BADGE_TEXT = 'UTSTYR NUMMER'
+const BADGE_TEXT_SHORT = 'UTSTYR NR'
+
 /**
  * Skriftstørrelse i mm som både får plass i høyden og på én linje i bredden.
- * 0.55 er omtrentlig snittbredde per tegn i forhold til skriftstørrelsen.
+ * `ratio` er snittbredden per tegn delt på skriftstørrelsen — målt i nettleser:
+ * 0.55 for Inter i blandet skrift, 0.79 for versaler med sperring, 0.62 for
+ * JetBrains Mono.
  */
 const fitMm = (heightBudget: number, width: number, text: string, ratio = 0.55) =>
   Math.min(heightBudget, width / (ratio * Math.max(6, text.length)))
@@ -39,11 +46,9 @@ export default function StickerCard({
   category, size = 160, forPrint = false, fullPage = false,
   widthMm, heightMm, showBadge = true, overrideColor,
 }: Props) {
-  const qrValue = JSON.stringify({
-    id: category.id,
-    name: category.name,
-    shelf: category.shelf_number,
-  })
+  // Samme innhold som vises på skjermen: URL, wifi, tlf osv. ut fra qr_type,
+  // med shop-JSON som fallback. Tidligere kodet utskriften alltid shop-JSON.
+  const qrValue = buildQRValue(category)
 
   const accentColor = overrideColor || category.color || '#0f0f0f'
 
@@ -85,13 +90,16 @@ export default function StickerCard({
   const innerFree = cardMm - padFree * 2
 
   const padMm = isLabel ? pad : padFree
+  const badgeWidth = fullPage ? 162 : isLabel ? availW : innerFree
+  const badgeText = badgeWidth < 55 ? BADGE_TEXT_SHORT : BADGE_TEXT
 
   const font = fullPage
     ? { label: '16pt', shelf: '30pt', name: '34pt', desc: '13pt', id: '10pt', infoLabel: '11pt', infoValue: '17pt' }
     : isLabel
     ? {
-        label:     mmPt(Math.min(badgeH * 0.34, availW * 0.06)),
-        shelf:     mmPt(fitMm(badgeH * 0.5, availW * 0.5, category.shelf_number)),
+        // Teksten og nummeret deler badgens bredde — begge må begrenses av den
+        label:     mmPt(fitMm(badgeH * 0.34, availW * 0.5, badgeText, 0.79)),
+        shelf:     mmPt(fitMm(badgeH * 0.5, availW * 0.45, category.shelf_number, 0.63)),
         name:      mmPt(nameFontMm),
         desc:      mmPt(descFontMm),
         id:        mmPt(Math.min(idH * 0.6, availW * 0.05)),
@@ -215,7 +223,7 @@ export default function StickerCard({
             whiteSpace: 'nowrap',
           }}
         >
-          HYLLE
+          {badgeText}
         </span>
         <span
           style={{

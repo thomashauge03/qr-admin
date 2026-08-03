@@ -70,7 +70,7 @@ export default function CategoryForm({ category, onSave, onClose }: Props) {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (!name.trim() || !shelf.trim()) { setError('Navn og hyllenummer er påkrevd'); return }
+    if (!name.trim() || !shelf.trim()) { setError('Navn og utstyrsnummer er påkrevd'); return }
     // Tomme linjer skal ikke lagres
     const cleanLines = infoLines
       .map(l => ({ label: l.label.trim(), value: l.value.trim() }))
@@ -132,9 +132,9 @@ export default function CategoryForm({ category, onSave, onClose }: Props) {
               <input type="text" value={name} onChange={e => setName(e.target.value)} placeholder="f.eks. Sportsutstyr" />
             </div>
 
-            {/* Hyllenummer */}
+            {/* Utstyrsnummer */}
             <div>
-              {label('HYLLENUMMER *')}
+              {label('UTSTYR NUMMER *')}
               <input type="text" value={shelf} onChange={e => setShelf(e.target.value)}
                 placeholder="f.eks. A-12" style={{ fontFamily: 'JetBrains Mono, monospace', letterSpacing: '0.05em' }} />
             </div>

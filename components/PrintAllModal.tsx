@@ -240,8 +240,8 @@ export default function PrintAllModal({ categories, onClose }: Props) {
           {/* Badge */}
           <div className="flex items-center justify-between">
             <div>
-              <p style={{ fontSize: '0.85rem', fontWeight: 500, color: 'var(--ink)' }}>Hylle-badge</p>
-              <p style={{ fontSize: '0.75rem', color: 'var(--muted)' }}>Fargefeltet med hyllenummer øverst</p>
+              <p style={{ fontSize: '0.85rem', fontWeight: 500, color: 'var(--ink)' }}>Nummer-badge</p>
+              <p style={{ fontSize: '0.75rem', color: 'var(--muted)' }}>Fargefeltet med utstyrsnummer øverst</p>
             </div>
             {toggle(showBadge, () => setShowBadge(b => !b))}
           </div>
