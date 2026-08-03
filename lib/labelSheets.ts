@@ -46,6 +46,7 @@ export const LABEL_SHEETS: LabelSheet[] = [
   { id: 'l7651', name: 'Avery L7651 — 38,1 × 21,2 (65)',  w: 38.1, h: 21.2,  cols: 5, rows: 13, marginTop: 10.7, marginLeft: 4.7,  pitchX: 40.6,  pitchY: 21.2  },
 ]
 
-export const DEFAULT_SHEET = LABEL_SHEETS.find(s => s.id === 'a4-24')!
+// 8 per ark er formatet vi har flest av
+export const DEFAULT_SHEET = LABEL_SHEETS.find(s => s.id === 'a4-8')!
 
 export const perSheet = (s: LabelSheet) => s.cols * s.rows

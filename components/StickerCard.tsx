@@ -65,21 +65,44 @@ export default function StickerCard({
   const availH  = h - pad * 2
   const availW  = w - pad * 2
   const gap     = availH * 0.04
-  const badgeH  = showBadge ? availH * 0.19 : 0
   // Beskrivelse og ID får bare plass på de større etikettene
   const showDesc = isLabel ? h >= 50 : true
   const showId   = isLabel ? h >= 70 : true
-  const nameH   = availH * (showDesc ? 0.28 : 0.2)
-  const idH     = showId ? availH * 0.08 : 0
-  const qrBudget = availH - badgeH - nameH - idH - gap * (showBadge ? 3 : 2)
-  const qrSide  = Math.max(4, Math.min(qrBudget, hasInfo ? availW * 0.42 : availW))
-  const infoColW = Math.max(1, availW - qrSide - gap)
+
+  // Brede etiketter (f.eks. 105 x 74mm) får QR-en ved siden av teksten i stedet
+  // for over den — ellers begrenser høyden QR-en til under halv størrelse.
+  const landscape = isLabel && w > h * 1.15
+
+  const badgeH = showBadge ? availH * (landscape ? 0.2 : 0.19) : 0
+  const idH    = showId ? availH * (landscape ? 0.09 : 0.08) : 0
+
+  // Tekstkolonnens bredde og de enkelte blokkenes høyde
+  let qrSide: number, textW: number, nameH: number, infoH: number
+  if (landscape) {
+    qrSide = Math.max(4, Math.min(availH, availW * 0.5))
+    textW  = Math.max(1, availW - qrSide - gap)
+    const rest = availH - badgeH - idH - gap * ((showBadge ? 1 : 0) + (showId ? 1 : 0))
+    infoH  = hasInfo ? rest * 0.55 - gap : 0
+    nameH  = hasInfo ? rest * 0.45 : rest
+  } else {
+    nameH = availH * (showDesc ? 0.28 : 0.2)
+    const qrBudget = availH - badgeH - nameH - idH - gap * (showBadge ? 3 : 2)
+    qrSide = Math.max(4, Math.min(qrBudget, hasInfo ? availW * 0.42 : availW))
+    textW  = availW
+    infoH  = 0
+  }
+  const infoColW = landscape ? textW : Math.max(1, availW - qrSide - gap)
   const longestInfoValue = infoLines.reduce((a, l) => (l.value.length > a.length ? l.value : a), '')
+  // Høyden hver infolinje har til rådighet, minus mellomrom og skillestrek
+  const infoLineH = (landscape ? infoH : qrSide) / Math.max(1, infoLines.length)
+  const infoLineContent = Math.max(0.5, infoLineH - gap * 1.5)
+  // Badgen har innvendig padding som teksten ikke kan bruke
+  const badgeInnerW = Math.max(1, textW - pad * 2)
 
   // Navnet får plassen det trenger; beskrivelsen får det som er igjen i navneblokka
-  const nameFontMm = fitMm(nameH * (showDesc ? 0.38 : 0.5), availW, category.name)
+  const nameFontMm = fitMm(nameH * (showDesc ? 0.38 : 0.5), textW, category.name)
   const descBudget = nameH - gap - nameFontMm * 1.3 - gap / 2
-  const descFontMm = Math.max(0, Math.min(descBudget / 1.35, fitMm(nameH * 0.26, availW, category.description || '')))
+  const descFontMm = Math.max(0, Math.min(descBudget / 1.35, fitMm(nameH * 0.26, textW, category.description || '')))
 
   // ── Fri modus (enkelt klistremerke uten fast høyde)
   const baseMm = w
@@ -98,13 +121,13 @@ export default function StickerCard({
     : isLabel
     ? {
         // Teksten og nummeret deler badgens bredde — begge må begrenses av den
-        label:     mmPt(fitMm(badgeH * 0.34, availW * 0.5, badgeText, 0.79)),
-        shelf:     mmPt(fitMm(badgeH * 0.5, availW * 0.45, category.shelf_number, 0.63)),
+        label:     mmPt(fitMm(badgeH * 0.34, badgeInnerW * 0.52, badgeText, 0.79)),
+        shelf:     mmPt(fitMm(badgeH * 0.5, badgeInnerW * 0.44, category.shelf_number, 0.63)),
         name:      mmPt(nameFontMm),
         desc:      mmPt(descFontMm),
-        id:        mmPt(Math.min(idH * 0.6, availW * 0.05)),
-        infoLabel: mmPt(Math.min(qrSide * 0.11, infoColW * 0.12)),
-        infoValue: mmPt(fitMm(qrSide * 0.17, infoColW, longestInfoValue)),
+        id:        mmPt(Math.min(idH * 0.6, textW * 0.05)),
+        infoLabel: mmPt(Math.min(infoLineContent * 0.3, infoColW * 0.12)),
+        infoValue: mmPt(fitMm(infoLineContent * 0.48, infoColW, longestInfoValue)),
       }
     : forPrint
     ? { label: pt(7), shelf: pt(9), name: pt(10), desc: pt(7), id: pt(6), infoLabel: pt(5), infoValue: pt(7.5) }
@@ -125,7 +148,9 @@ export default function StickerCard({
         flexDirection: 'column',
         justifyContent: 'center',
         gap: isLabel ? `${gap}mm` : fullPage ? '6mm' : forPrint ? '2mm' : '10px',
-        flex: 1,
+        flex: landscape ? undefined : 1,
+        width: landscape ? '100%' : undefined,
+        height: landscape ? `${infoH}mm` : undefined,
         minWidth: 0,
         overflow: 'hidden',
         textAlign: 'left',
@@ -174,28 +199,7 @@ export default function StickerCard({
     </div>
   )
 
-  return (
-    <div
-      className="sticker-card flex flex-col items-center"
-      style={{
-        boxSizing: 'border-box',
-        display: 'flex',
-        flexDirection: 'column',
-        alignItems: 'center',
-        justifyContent: fullPage ? 'center' : undefined,
-        width: fullPage ? '190mm' : forPrint ? `${cardMm}mm` : hasInfo ? '340px' : undefined,
-        height: fullPage ? '277mm' : isLabel ? `${h}mm` : undefined,
-        overflow: isLabel ? 'hidden' : undefined,
-        padding: fullPage ? '14mm' : forPrint ? `${padMm}mm` : '20px',
-        backgroundColor: '#ffffff',
-        border: `${fullPage ? '4px' : isLabel ? '0.4mm' : '2px'} solid ${accentColor}`,
-        borderRadius: fullPage ? '8mm' : isLabel ? `${pad}mm` : forPrint ? '4mm' : '16px',
-        fontFamily: SANS,
-        pageBreakInside: 'avoid',
-      }}
-    >
-      {/* Hylle-badge øverst */}
-      {showBadge && (
+  const badgeEl = showBadge && (
       <div
         className="w-full rounded-lg mb-3 flex items-center justify-between px-3 py-1.5"
         style={{
@@ -239,17 +243,19 @@ export default function StickerCard({
           {category.shelf_number}
         </span>
       </div>
-      )}
+  )
 
-      {/* QR + infoliste side ved side */}
+  // QR-en. I liggende layout står den alene til venstre; ellers med
+  // infolisten ved siden av seg.
+  const qrRowEl = (
       <div
         className="flex items-center justify-center"
         style={{
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
-          gap: hasInfo ? (fullPage ? '10mm' : isLabel ? `${gap}mm` : forPrint ? `${padMm / 2}mm` : '16px') : undefined,
-          width: hasInfo ? '100%' : undefined,
+          gap: hasInfo && !landscape ? (fullPage ? '10mm' : isLabel ? `${gap}mm` : forPrint ? `${padMm / 2}mm` : '16px') : undefined,
+          width: hasInfo && !landscape ? '100%' : undefined,
           height: isLabel ? `${qrSide}mm` : undefined,
           flexShrink: 0,
           margin: fullPage || forPrint ? '0' : '8px 0',
@@ -266,10 +272,11 @@ export default function StickerCard({
             style={qrWidth ? { width: '100%', height: 'auto', display: 'block' } : undefined}
           />
         </div>
-        {infoList}
+        {!landscape && infoList}
       </div>
+  )
 
-      {/* Navn */}
+  const nameEl = (
       <div
         className="w-full text-center mt-2"
         style={{
@@ -277,10 +284,10 @@ export default function StickerCard({
           width: '100%',
           height: isLabel ? `${nameH}mm` : undefined,
           overflow: 'hidden',
-          textAlign: 'center',
-          borderTop: `1px solid ${accentColor}22`,
-          paddingTop: fullPage ? '8mm' : isLabel ? `${gap}mm` : forPrint ? `${padMm / 2}mm` : '10px',
-          marginTop: fullPage ? '10mm' : isLabel ? `${gap}mm` : forPrint ? `${padMm / 2}mm` : '8px',
+          textAlign: landscape ? 'left' : 'center',
+          borderTop: landscape ? undefined : `1px solid ${accentColor}22`,
+          paddingTop: landscape ? 0 : fullPage ? '8mm' : isLabel ? `${gap}mm` : forPrint ? `${padMm / 2}mm` : '10px',
+          marginTop: landscape ? `${gap}mm` : fullPage ? '10mm' : isLabel ? `${gap}mm` : forPrint ? `${padMm / 2}mm` : '8px',
         }}
       >
         <p
@@ -313,9 +320,10 @@ export default function StickerCard({
           </p>
         )}
       </div>
+  )
 
-      {/* ID nederst — droppes på små etiketter der plassen trengs til navnet */}
-      {showId && (
+  // ID nederst — droppes på små etiketter der plassen trengs til navnet
+  const idEl = showId && (
       <p
         style={{
           ...NUM,
@@ -331,7 +339,50 @@ export default function StickerCard({
       >
         {category.id.slice(0, 8).toUpperCase()}
       </p>
-      )}
+  )
+
+  const cardStyle: CSSProperties = {
+    boxSizing: 'border-box',
+    display: 'flex',
+    flexDirection: landscape ? 'row' : 'column',
+    alignItems: landscape ? 'center' : 'center',
+    justifyContent: fullPage ? 'center' : undefined,
+    gap: landscape ? `${gap}mm` : undefined,
+    width: fullPage ? '190mm' : forPrint ? `${cardMm}mm` : hasInfo ? '340px' : undefined,
+    height: fullPage ? '277mm' : isLabel ? `${h}mm` : undefined,
+    overflow: isLabel ? 'hidden' : undefined,
+    padding: fullPage ? '14mm' : forPrint ? `${padMm}mm` : '20px',
+    backgroundColor: '#ffffff',
+    border: `${fullPage ? '4px' : isLabel ? '0.4mm' : '2px'} solid ${accentColor}`,
+    borderRadius: fullPage ? '8mm' : isLabel ? `${pad}mm` : forPrint ? '4mm' : '16px',
+    fontFamily: SANS,
+    pageBreakInside: 'avoid',
+  }
+
+  // Liggende etikett: QR til venstre, all tekst i en kolonne til høyre
+  if (landscape) {
+    return (
+      <div className="sticker-card" style={cardStyle}>
+        {qrRowEl}
+        <div style={{
+          display: 'flex', flexDirection: 'column', flex: 1, minWidth: 0,
+          height: '100%', justifyContent: 'center', overflow: 'hidden',
+        }}>
+          {badgeEl}
+          {nameEl}
+          {infoList}
+          {idEl}
+        </div>
+      </div>
+    )
+  }
+
+  return (
+    <div className="sticker-card" style={cardStyle}>
+      {badgeEl}
+      {qrRowEl}
+      {nameEl}
+      {idEl}
     </div>
   )
 }
