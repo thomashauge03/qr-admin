@@ -24,7 +24,7 @@ export default function PrintModal({ category, onClose }: Props) {
     win.document.write(`
       <html><head>
         <title>${fullPage ? 'A4' : 'Sticker'} — ${category.name}</title>
-        <link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=DM+Sans:wght@300;400&family=Syne:wght@700;800&display=swap" rel="stylesheet">
+        <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
         <style>
           * { margin:0; padding:0; box-sizing:border-box; }
           body { display:flex; align-items:center; justify-content:center; min-height:100vh; background:white; }

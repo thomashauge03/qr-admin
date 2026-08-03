@@ -1,5 +1,6 @@
 'use client'
 
+import type { CSSProperties } from 'react'
 import { QRCodeSVG } from 'qrcode.react'
 import { Category } from '@/types'
 
@@ -20,6 +21,12 @@ interface Props {
 }
 
 const mmPt = (mm: number) => `${Math.round(mm * 2.8346 * 10) / 10}pt`
+
+// Utskriftstypografi: Inter er langt mer lesbar i småskrift enn display-fonten
+// Syne, og monoen har sperret null (0 vs O) for hyllenummer og ID.
+const SANS = 'Inter, system-ui, sans-serif'
+const MONO = 'JetBrains Mono, ui-monospace, monospace'
+const NUM: CSSProperties = { fontVariantNumeric: 'slashed-zero tabular-nums' }
 
 /**
  * Skriftstørrelse i mm som både får plass i høyden og på én linje i bredden.
@@ -66,8 +73,8 @@ export default function StickerCard({
 
   // Navnet får plassen det trenger; beskrivelsen får det som er igjen i navneblokka
   const nameFontMm = fitMm(nameH * (showDesc ? 0.38 : 0.5), availW, category.name)
-  const descBudget = nameH - gap - nameFontMm * 1.15 - gap / 2
-  const descFontMm = Math.max(0, Math.min(descBudget / 1.25, fitMm(nameH * 0.26, availW, category.description || '')))
+  const descBudget = nameH - gap - nameFontMm * 1.3 - gap / 2
+  const descFontMm = Math.max(0, Math.min(descBudget / 1.35, fitMm(nameH * 0.26, availW, category.description || '')))
 
   // ── Fri modus (enkelt klistremerke uten fast høyde)
   const baseMm = w
@@ -128,9 +135,10 @@ export default function StickerCard({
             <div
               style={{
                 fontSize: font.infoLabel,
-                fontFamily: 'DM Mono, monospace',
-                letterSpacing: '0.08em',
-                color: '#8a857d',
+                fontFamily: SANS,
+                fontWeight: 500,
+                letterSpacing: '0.06em',
+                color: '#7c776f',
                 textTransform: 'uppercase',
                 lineHeight: 1.2,
               }}
@@ -141,11 +149,12 @@ export default function StickerCard({
           {line.value && (
             <div
               style={{
+                ...NUM,
                 fontSize: font.infoValue,
-                fontFamily: 'Syne, sans-serif',
-                fontWeight: 700,
+                fontFamily: SANS,
+                fontWeight: 600,
                 color: '#0f0f0f',
-                lineHeight: 1.15,
+                lineHeight: 1.2,
                 wordBreak: 'break-word',
               }}
             >
@@ -173,7 +182,7 @@ export default function StickerCard({
         backgroundColor: '#ffffff',
         border: `${fullPage ? '4px' : isLabel ? '0.4mm' : '2px'} solid ${accentColor}`,
         borderRadius: fullPage ? '8mm' : isLabel ? `${pad}mm` : forPrint ? '4mm' : '16px',
-        fontFamily: 'Syne, sans-serif',
+        fontFamily: SANS,
         pageBreakInside: 'avoid',
       }}
     >
@@ -200,9 +209,9 @@ export default function StickerCard({
           style={{
             color: '#ffffff',
             fontSize: font.label,
-            fontFamily: 'DM Mono, monospace',
-            letterSpacing: '0.08em',
-            fontWeight: 500,
+            fontFamily: SANS,
+            letterSpacing: '0.1em',
+            fontWeight: 600,
             whiteSpace: 'nowrap',
           }}
         >
@@ -211,9 +220,10 @@ export default function StickerCard({
         <span
           style={{
             color: '#ffffff',
+            ...NUM,
             fontSize: font.shelf,
-            fontFamily: 'DM Mono, monospace',
-            letterSpacing: '0.06em',
+            fontFamily: MONO,
+            letterSpacing: '0.02em',
             fontWeight: 500,
             whiteSpace: 'nowrap',
           }}
@@ -267,13 +277,14 @@ export default function StickerCard({
       >
         <p
           style={{
+            ...NUM,
             margin: 0,
             fontSize: font.name,
-            fontFamily: 'Syne, sans-serif',
-            fontWeight: 700,
+            fontFamily: SANS,
+            fontWeight: 600,
             color: '#0f0f0f',
-            lineHeight: 1.15,
-            letterSpacing: '-0.01em',
+            lineHeight: 1.2,
+            letterSpacing: '-0.005em',
           }}
         >
           {category.name}
@@ -282,12 +293,12 @@ export default function StickerCard({
           <p
             style={{
               fontSize: font.desc,
-              color: '#8a857d',
+              color: '#6f6a63',
               margin: 0,
-              lineHeight: 1.2,
+              lineHeight: 1.25,
               marginTop: fullPage ? '4mm' : isLabel ? `${gap / 2}mm` : '3px',
-              fontFamily: 'DM Sans, sans-serif',
-              fontWeight: 300,
+              fontFamily: SANS,
+              fontWeight: 400,
             }}
           >
             {category.description}
@@ -299,14 +310,15 @@ export default function StickerCard({
       {showId && (
       <p
         style={{
+          ...NUM,
           fontSize: font.id,
-          color: '#c0bbb3',
+          color: '#a8a39c',
           margin: 0,
           lineHeight: 1.2,
           height: isLabel ? `${idH}mm` : undefined,
           marginTop: fullPage ? '6mm' : isLabel ? `${gap}mm` : forPrint ? `${padMm / 3}mm` : '8px',
-          fontFamily: 'DM Mono, monospace',
-          letterSpacing: '0.05em',
+          fontFamily: MONO,
+          letterSpacing: '0.03em',
         }}
       >
         {category.id.slice(0, 8).toUpperCase()}

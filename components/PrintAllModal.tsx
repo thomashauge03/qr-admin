@@ -40,7 +40,7 @@ export default function PrintAllModal({ categories, onClose }: Props) {
       <html>
         <head>
           <title>Etiketter — QR Admin</title>
-          <link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Syne:wght@400;700;800&family=DM+Sans:wght@300;400&display=swap" rel="stylesheet">
+          <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
           <style>
             * { margin: 0; padding: 0; box-sizing: border-box; }
             body { background: white; font-family: sans-serif; }
