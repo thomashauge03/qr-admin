@@ -9,30 +9,51 @@ interface Props {
   forPrint?: boolean
   /** Fyller et helt A4-ark med én stor QR-kode */
   fullPage?: boolean
+  /** Bredde på klistremerket i mm ved utskrift (default 60, eller 90 med infoliste) */
+  widthMm?: number
+  /** Vis hylle-feltet øverst */
+  showBadge?: boolean
+  /** Overstyrer fargen som er lagret på QR-koden */
+  overrideColor?: string | null
 }
 
-export default function StickerCard({ category, size = 160, forPrint = false, fullPage = false }: Props) {
+export default function StickerCard({
+  category, size = 160, forPrint = false, fullPage = false,
+  widthMm, showBadge = true, overrideColor,
+}: Props) {
   const qrValue = JSON.stringify({
     id: category.id,
     name: category.name,
     shelf: category.shelf_number,
   })
 
-  const accentColor = category.color || '#0f0f0f'
+  const accentColor = overrideColor || category.color || '#0f0f0f'
 
   const infoLines = (category.info_lines || []).filter(l => l.label || l.value)
   const hasInfo = infoLines.length > 0
 
+  // Bredde: infolisten trenger mer plass ved siden av QR-koden
+  const baseMm = widthMm ?? 60
+  const cardMm = hasInfo ? Math.round(baseMm * 1.5) : baseMm
+  // Typografien skaleres med bredden, slik at 45mm og 90mm begge blir lesbare
+  const k = cardMm / 60
+  const pt = (base: number) => `${Math.round(base * k * 10) / 10}pt`
+
   const font = fullPage
     ? { label: '16pt', shelf: '30pt', name: '34pt', desc: '13pt', id: '10pt', infoLabel: '11pt', infoValue: '17pt' }
     : forPrint
-    ? { label: '7pt', shelf: '9pt', name: '10pt', desc: '7pt', id: '6pt', infoLabel: '5pt', infoValue: '7.5pt' }
+    ? { label: pt(7), shelf: pt(9), name: pt(10), desc: pt(7), id: pt(6), infoLabel: pt(5), infoValue: pt(7.5) }
     : { label: '10px', shelf: '13px', name: '14px', desc: '10px', id: '9px', infoLabel: '8px', infoValue: '12px' }
 
-  // Bredde: infolisten trenger mer plass ved siden av QR-koden
-  const printWidth = hasInfo ? '90mm' : '60mm'
-  // QR-en er kvadratisk og styres av bredden på venstre kolonne
-  const qrWidth = fullPage ? (hasInfo ? '105mm' : '145mm') : undefined
+  const printWidth = `${cardMm}mm`
+  // QR-en er kvadratisk og styres av bredden på venstre kolonne.
+  // Ved utskrift: kortbredde minus padding, halvert når infolisten står ved siden av.
+  const innerMm = cardMm - 12
+  const qrWidth = fullPage
+    ? (hasInfo ? '105mm' : '145mm')
+    : forPrint
+    ? `${hasInfo ? Math.round((innerMm - 4) * 0.52) : innerMm}mm`
+    : undefined
 
   const infoList = hasInfo && (
     <div
@@ -105,7 +126,8 @@ export default function StickerCard({ category, size = 160, forPrint = false, fu
         pageBreakInside: 'avoid',
       }}
     >
-      {/* Top bar */}
+      {/* Hylle-badge øverst */}
+      {showBadge && (
       <div
         className="w-full rounded-lg mb-3 flex items-center justify-between px-3 py-1.5"
         style={{
@@ -142,6 +164,7 @@ export default function StickerCard({ category, size = 160, forPrint = false, fu
           {category.shelf_number}
         </span>
       </div>
+      )}
 
       {/* QR + infoliste side ved side */}
       <div
@@ -158,12 +181,12 @@ export default function StickerCard({ category, size = 160, forPrint = false, fu
         <div style={{ flexShrink: 0, width: qrWidth, lineHeight: 0 }}>
           <QRCodeSVG
             value={qrValue}
-            size={fullPage ? 1024 : hasInfo ? Math.round(size * 0.72) : size}
+            size={qrWidth ? 1024 : size}
             bgColor="#ffffff"
             fgColor="#0f0f0f"
             level="M"
             includeMargin={false}
-            style={fullPage ? { width: '100%', height: 'auto' } : undefined}
+            style={qrWidth ? { width: '100%', height: 'auto', display: 'block' } : undefined}
           />
         </div>
         {infoList}
