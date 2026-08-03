@@ -20,20 +20,32 @@ export default function PrintAllModal({ categories, onClose }: Props) {
   const [showBadge, setShowBadge] = useState(true)
   const [useColor,  setUseColor]  = useState(false)
   const [color,     setColor]     = useState(COLORS[0])
+  const [showList,  setShowList]  = useState(false)
+  // Alle er valgt til å begynne med
+  const [selected,  setSelected]  = useState<Set<string>>(() => new Set(categories.map(c => c.id)))
 
   const sheet    = LABEL_SHEETS.find(s => s.id === sheetId) || DEFAULT_SHEET
   const override = useColor ? color : null
   const per      = perSheet(sheet)
-  const pageCount = Math.max(1, Math.ceil(categories.length / per))
+
+  const chosen = categories.filter(c => selected.has(c.id))
+  const pageCount = Math.ceil(chosen.length / per)
+
+  const toggleOne = (id: string) =>
+    setSelected(prev => {
+      const next = new Set(prev)
+      if (next.has(id)) next.delete(id); else next.add(id)
+      return next
+    })
 
   // Del opp i ark
   const pages: Category[][] = []
-  for (let i = 0; i < categories.length; i += per) pages.push(categories.slice(i, i + per))
+  for (let i = 0; i < chosen.length; i += per) pages.push(chosen.slice(i, i + per))
   if (pages.length === 0) pages.push([])
 
   const handlePrint = () => {
     const content = printRef.current
-    if (!content) return
+    if (!content || chosen.length === 0) return
     const printWindow = window.open('', '_blank')
     if (!printWindow) return
     printWindow.document.write(`
@@ -118,7 +130,7 @@ export default function PrintAllModal({ categories, onClose }: Props) {
           <div>
             <h2 className="font-display text-xl" style={{ fontWeight: 700 }}>Print etiketter</h2>
             <p style={{ color: 'var(--muted)', fontSize: '0.875rem', marginTop: 2 }}>
-              {categories.length} QR-koder — {per} per ark, {pageCount} {pageCount === 1 ? 'ark' : 'ark'}
+              {chosen.length} av {categories.length} valgt — {per} per ark, {pageCount} ark
             </p>
           </div>
           <button onClick={onClose} style={{ color: 'var(--muted)', fontSize: '1.25rem', lineHeight: 1 }}>✕</button>
@@ -126,6 +138,61 @@ export default function PrintAllModal({ categories, onClose }: Props) {
 
         {/* Innstillinger */}
         <div className="px-8 pb-5 space-y-5" style={{ borderBottom: '1px solid var(--border)' }}>
+
+          {/* Hvilke QR-koder som skal med */}
+          <div>
+            <div className="flex items-center justify-between" style={{ marginBottom: 8 }}>
+              {sectionLabel(`QR-KODER (${chosen.length}/${categories.length})`)}
+              <div className="flex items-center gap-3" style={{ marginBottom: 8 }}>
+                <button onClick={() => setSelected(new Set(categories.map(c => c.id)))}
+                  className="underline" style={{ fontSize: '0.75rem', color: 'var(--muted)' }}>
+                  Velg alle
+                </button>
+                <button onClick={() => setSelected(new Set())}
+                  className="underline" style={{ fontSize: '0.75rem', color: 'var(--muted)' }}>
+                  Fjern alle
+                </button>
+                <button onClick={() => setShowList(v => !v)}
+                  className="underline" style={{ fontSize: '0.75rem', color: 'var(--ink)', fontWeight: 500 }}>
+                  {showList ? 'Skjul liste' : 'Velg enkeltvis'}
+                </button>
+              </div>
+            </div>
+            {showList && (
+              <div className="rounded-xl overflow-y-auto"
+                style={{ border: '1.5px solid var(--border)', maxHeight: 190 }}>
+                {categories.map((c, i) => {
+                  const on = selected.has(c.id)
+                  return (
+                    <button key={c.id} onClick={() => toggleOne(c.id)}
+                      className="w-full flex items-center gap-3 text-left transition-colors"
+                      style={{ padding: '9px 12px',
+                        borderTop: i > 0 ? '1px solid var(--border)' : 'none',
+                        backgroundColor: on ? 'var(--surface)' : 'var(--gray-50)',
+                        opacity: on ? 1 : 0.55 }}>
+                      <span className="flex items-center justify-center rounded-md shrink-0"
+                        style={{ width: 18, height: 18,
+                          border: `1.5px solid ${on ? 'var(--black)' : 'var(--border-dark)'}`,
+                          backgroundColor: on ? 'var(--black)' : 'transparent' }}>
+                        {on && (
+                          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="var(--white)" strokeWidth="3.5" strokeLinecap="round" strokeLinejoin="round">
+                            <polyline points="20 6 9 17 4 12"/>
+                          </svg>
+                        )}
+                      </span>
+                      <span className="flex-1 min-w-0 truncate" style={{ fontSize: '0.85rem', color: 'var(--ink)' }}>
+                        {c.name}
+                      </span>
+                      <span className="shrink-0" style={{ fontSize: '0.75rem', color: 'var(--muted)',
+                        fontFamily: 'JetBrains Mono, monospace', fontVariantNumeric: 'slashed-zero' }}>
+                        {c.shelf_number}
+                      </span>
+                    </button>
+                  )
+                })}
+              </div>
+            )}
+          </div>
 
           {/* Arktype */}
           <div>
@@ -230,10 +297,13 @@ export default function PrintAllModal({ categories, onClose }: Props) {
           </button>
           <button
             onClick={handlePrint}
+            disabled={chosen.length === 0}
             className="flex-1 rounded-xl py-3 text-sm font-medium transition-all hover:opacity-90 flex items-center justify-center gap-2"
-            style={{ backgroundColor: 'var(--black)', color: 'var(--white)', fontFamily: 'Syne, sans-serif', fontWeight: 600 }}
+            style={{ backgroundColor: 'var(--black)', color: 'var(--white)', fontFamily: 'Syne, sans-serif',
+              fontWeight: 600, opacity: chosen.length === 0 ? 0.4 : 1,
+              cursor: chosen.length === 0 ? 'not-allowed' : 'pointer' }}
           >
-            <span>🖨</span> Print {pageCount} {pageCount === 1 ? 'ark' : 'ark'}
+            <span>🖨</span> {chosen.length === 0 ? 'Ingen valgt' : `Print ${pageCount} ark`}
           </button>
         </div>
       </div>
