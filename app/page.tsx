@@ -483,6 +483,19 @@ export default function HomePage() {
                   <option value="name">Navn A–Å</option>
                   <option value="shelf_number">Hyllenummer</option>
                 </select>
+                {filtered.length > 0 && (
+                  <button onClick={() => setShowPrintAll(true)}
+                    className="flex items-center justify-center gap-2 rounded-xl shrink-0 active:scale-95 transition-all"
+                    style={{ height: 44, padding: '0 14px', backgroundColor: 'var(--black)', color: 'var(--white)',
+                      fontSize: '0.85rem', fontWeight: 600 }}>
+                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      <polyline points="6 9 6 2 18 2 18 9"/>
+                      <path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/>
+                      <rect x="6" y="14" width="12" height="8"/>
+                    </svg>
+                    Print alle
+                  </button>
+                )}
                 <div className="flex rounded-xl overflow-hidden shrink-0" style={{ border: '1.5px solid var(--border)' }}>
                   {(['grid', 'list'] as View[]).map(v => (
                     <button key={v} onClick={() => setView(v)}

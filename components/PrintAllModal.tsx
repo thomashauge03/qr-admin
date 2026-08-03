@@ -33,7 +33,7 @@ export default function PrintAllModal({ categories, onClose }: Props) {
               padding: 10mm;
             }
             .sticker-card { break-inside: avoid; page-break-inside: avoid; }
-            @media print { @page { margin: 5mm; } }
+            @page { size: A4 portrait; margin: 5mm; }
           </style>
         </head>
         <body><div class="grid">${content.innerHTML}</div></body>
@@ -46,12 +46,12 @@ export default function PrintAllModal({ categories, onClose }: Props) {
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ backgroundColor: 'rgba(15,15,15,0.7)' }}>
-      <div className="animate-fade-up w-full max-w-2xl rounded-2xl shadow-2xl" style={{ backgroundColor: 'var(--card)', border: '1px solid var(--border)', maxHeight: '90vh', display: 'flex', flexDirection: 'column' }}>
+      <div className="animate-fade-up w-full max-w-2xl rounded-2xl shadow-2xl" style={{ backgroundColor: 'var(--surface)', border: '1px solid var(--border)', maxHeight: '90vh', display: 'flex', flexDirection: 'column' }}>
         <div className="p-8 pb-4 flex items-start justify-between">
           <div>
             <h2 className="font-display text-xl" style={{ fontWeight: 700 }}>Print alle stickere</h2>
             <p style={{ color: 'var(--muted)', fontSize: '0.875rem', marginTop: 2 }}>
-              {categories.length} stickere — grid-layout (3 per rad)
+              {categories.length} stickere — fyller arket radvis
             </p>
           </div>
           <button onClick={onClose} style={{ color: 'var(--muted)', fontSize: '1.25rem', lineHeight: 1 }}>✕</button>
@@ -73,14 +73,14 @@ export default function PrintAllModal({ categories, onClose }: Props) {
           <button
             onClick={onClose}
             className="flex-1 rounded-xl py-3 text-sm font-medium transition-all hover:opacity-70"
-            style={{ backgroundColor: 'var(--paper-dark)', color: 'var(--ink)' }}
+            style={{ backgroundColor: 'var(--gray-100)', color: 'var(--ink)' }}
           >
             Lukk
           </button>
           <button
             onClick={handlePrint}
             className="flex-1 rounded-xl py-3 text-sm font-medium transition-all hover:opacity-90 flex items-center justify-center gap-2"
-            style={{ backgroundColor: 'var(--ink)', color: 'var(--paper)', fontFamily: 'Syne, sans-serif', fontWeight: 600 }}
+            style={{ backgroundColor: 'var(--black)', color: 'var(--white)', fontFamily: 'Syne, sans-serif', fontWeight: 600 }}
           >
             <span>🖨</span> Print alle {categories.length} stickere
           </button>
