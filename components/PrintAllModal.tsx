@@ -24,9 +24,11 @@ export default function PrintAllModal({ categories, onClose }: Props) {
           <style>
             * { margin: 0; padding: 0; box-sizing: border-box; }
             body { background: white; font-family: sans-serif; }
+            /* flex-wrap fordi stickere med infoliste er bredere (90mm vs 60mm) */
             .grid {
-              display: grid;
-              grid-template-columns: repeat(3, 1fr);
+              display: flex;
+              flex-wrap: wrap;
+              align-items: flex-start;
               gap: 8mm;
               padding: 10mm;
             }
@@ -59,7 +61,7 @@ export default function PrintAllModal({ categories, onClose }: Props) {
         <div className="overflow-y-auto px-8 pb-4 flex-1">
           <div
             ref={printRef}
-            style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '12px' }}
+            style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'flex-start', gap: '12px' }}
           >
             {categories.map(cat => (
               <StickerCard key={cat.id} category={cat} size={100} forPrint={true} />

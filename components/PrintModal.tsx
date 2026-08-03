@@ -1,5 +1,5 @@
 'use client'
-import { useRef } from 'react'
+import { useRef, useState } from 'react'
 import { Category } from '@/types'
 import StickerCard from './StickerCard'
 
@@ -8,8 +8,13 @@ interface Props {
   onClose: () => void
 }
 
+type Layout = 'sticker' | 'full'
+
 export default function PrintModal({ category, onClose }: Props) {
   const printRef = useRef<HTMLDivElement>(null)
+  const [layout, setLayout] = useState<Layout>('sticker')
+  const fullPage = layout === 'full'
+  const hasInfo = (category.info_lines || []).length > 0
 
   const handlePrint = () => {
     const content = printRef.current
@@ -18,18 +23,18 @@ export default function PrintModal({ category, onClose }: Props) {
     if (!win) return
     win.document.write(`
       <html><head>
-        <title>Sticker — ${category.name}</title>
-        <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500&family=Syne:wght@700;800&family=Inter:wght@400;500&display=swap" rel="stylesheet">
+        <title>${fullPage ? 'A4' : 'Sticker'} — ${category.name}</title>
+        <link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=DM+Sans:wght@300;400&family=Syne:wght@700;800&display=swap" rel="stylesheet">
         <style>
           * { margin:0; padding:0; box-sizing:border-box; }
           body { display:flex; align-items:center; justify-content:center; min-height:100vh; background:white; }
-          @media print { @page { margin:5mm; } }
+          @page { size: A4 portrait; margin: ${fullPage ? '10mm' : '5mm'}; }
         </style>
       </head><body>${content.innerHTML}</body></html>
     `)
     win.document.close()
     win.focus()
-    setTimeout(() => { win.print(); win.close() }, 500)
+    setTimeout(() => { win.print(); win.close() }, 700)
   }
 
   return (
@@ -56,9 +61,45 @@ export default function PrintModal({ category, onClose }: Props) {
           </button>
         </div>
 
+        {/* Layout-valg */}
+        <div className="flex gap-2 px-6 pt-5">
+          {([
+            { key: 'sticker' as Layout, label: 'Klistremerke', hint: hasInfo ? '90 mm' : '60 mm' },
+            { key: 'full' as Layout, label: 'Helt ark', hint: 'A4' },
+          ]).map(opt => (
+            <button
+              key={opt.key}
+              onClick={() => setLayout(opt.key)}
+              className="flex-1 rounded-xl py-2.5 text-sm transition-all"
+              style={{
+                backgroundColor: layout === opt.key ? 'var(--black)' : 'var(--gray-100)',
+                color: layout === opt.key ? 'var(--white)' : 'var(--ink)',
+                fontWeight: layout === opt.key ? 600 : 500,
+              }}>
+              {opt.label}
+              <span style={{ display: 'block', fontSize: '0.7rem', opacity: 0.6, fontWeight: 400 }}>
+                {opt.hint}
+              </span>
+            </button>
+          ))}
+        </div>
+
         {/* Preview */}
-        <div className="flex justify-center px-6 py-6" ref={printRef}>
-          <StickerCard category={category} size={140} forPrint={false} />
+        <div className="flex justify-center px-6 py-6">
+          {fullPage ? (
+            // A4-arket er 190mm (~718px) bredt — skaler ned til forhåndsvisning
+            <div style={{ width: 718 * 0.32, height: 1047 * 0.32, overflow: 'hidden' }}>
+              <div style={{ transform: 'scale(0.32)', transformOrigin: 'top left', width: 718 }}>
+                <div ref={printRef}>
+                  <StickerCard category={category} fullPage />
+                </div>
+              </div>
+            </div>
+          ) : (
+            <div ref={printRef}>
+              <StickerCard category={category} size={200} forPrint />
+            </div>
+          )}
         </div>
 
         {/* Actions */}

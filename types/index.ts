@@ -18,6 +18,12 @@ export interface QRData {
   location_label?: string
 }
 
+/** Én linje i infolisten ved siden av QR-koden (utleie: pris, depositum, kontakt ...) */
+export interface InfoLine {
+  label: string
+  value: string
+}
+
 export interface Folder {
   id: string
   name: string
@@ -35,6 +41,7 @@ export interface Category {
   color: string | null
   qr_type: QRType | null
   qr_data: QRData | null
+  info_lines: InfoLine[] | null
   folder_id: string | null
   created_at: string
 }

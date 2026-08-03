@@ -12,12 +12,17 @@ CREATE TABLE IF NOT EXISTS categories (
   color         TEXT,
   qr_type       TEXT DEFAULT 'shop',
   qr_data       JSONB,
+  info_lines    JSONB,
   created_at    TIMESTAMPTZ DEFAULT NOW()
 );
 
 -- Migrering for eksisterende tabeller (kjør om tabellen allerede finnes)
 ALTER TABLE categories ADD COLUMN IF NOT EXISTS qr_type TEXT DEFAULT 'shop';
 ALTER TABLE categories ADD COLUMN IF NOT EXISTS qr_data JSONB;
+
+-- Infoliste ved siden av QR-koden (utleie: pris, depositum, kontakt ...)
+-- Format: [{ "label": "Pris", "value": "250 kr/døgn" }, ...]
+ALTER TABLE categories ADD COLUMN IF NOT EXISTS info_lines JSONB;
 
 -- Mapper
 CREATE TABLE IF NOT EXISTS folders (

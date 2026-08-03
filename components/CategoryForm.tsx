@@ -1,6 +1,6 @@
 'use client'
 import React, { useState, useEffect } from 'react'
-import { Category, CategoryInsert, QRType, QRData } from '@/types'
+import { Category, CategoryInsert, QRType, QRData, InfoLine } from '@/types'
 
 const PRESET_COLORS = [
   '#000000', '#ef4444', '#f97316', '#eab308',
@@ -44,6 +44,7 @@ export default function CategoryForm({ category, onSave, onClose }: Props) {
   const [color,       setColor]       = useState(PRESET_COLORS[0])
   const [qrType,      setQRType]      = useState<QRType>('shop')
   const [qrData,      setQRData]      = useState<QRData>(emptyQR())
+  const [infoLines,   setInfoLines]   = useState<InfoLine[]>([])
   const [loading,     setLoading]     = useState(false)
   const [error,       setError]       = useState('')
 
@@ -55,15 +56,25 @@ export default function CategoryForm({ category, onSave, onClose }: Props) {
       setColor(category.color || PRESET_COLORS[0])
       setQRType(category.qr_type || 'shop')
       setQRData(category.qr_data || emptyQR())
+      setInfoLines(category.info_lines || [])
     }
   }, [category])
 
   const set = (key: keyof QRData, value: string | boolean) =>
     setQRData(p => ({ ...p, [key]: value }))
 
+  const setLine = (i: number, key: keyof InfoLine, value: string) =>
+    setInfoLines(p => p.map((l, idx) => (idx === i ? { ...l, [key]: value } : l)))
+  const addLine    = () => setInfoLines(p => [...p, { label: '', value: '' }])
+  const removeLine = (i: number) => setInfoLines(p => p.filter((_, idx) => idx !== i))
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!name.trim() || !shelf.trim()) { setError('Navn og hyllenummer er påkrevd'); return }
+    // Tomme linjer skal ikke lagres
+    const cleanLines = infoLines
+      .map(l => ({ label: l.label.trim(), value: l.value.trim() }))
+      .filter(l => l.label || l.value)
     setLoading(true); setError('')
     try {
       await onSave({
@@ -71,6 +82,7 @@ export default function CategoryForm({ category, onSave, onClose }: Props) {
         description: description.trim() || null,
         color, qr_type: qrType,
         qr_data: { ...qrData, type: qrType },
+        info_lines: cleanLines.length ? cleanLines : null,
         folder_id: null,
       })
       onClose()
@@ -134,6 +146,36 @@ export default function CategoryForm({ category, onSave, onClose }: Props) {
                 placeholder="Valgfri beskrivelse..." rows={2}
                 style={{ resize: 'none', borderRadius: 10, padding: '10px 14px', border: '1.5px solid var(--border)',
                   fontSize: '0.875rem', outline: 'none', width: '100%', fontFamily: 'inherit' }} />
+            </div>
+
+            {/* Infoliste — vises ved siden av QR-koden på klistremerket */}
+            <div>
+              {label('INFOLISTE (VED SIDEN AV QR)')}
+              <div className="space-y-2">
+                {infoLines.map((line, i) => (
+                  <div key={i} className="flex items-center gap-2">
+                    <input type="text" value={line.label} onChange={e => setLine(i, 'label', e.target.value)}
+                      placeholder="Pris" style={{ flex: '0 0 38%', minWidth: 0 }} />
+                    <input type="text" value={line.value} onChange={e => setLine(i, 'value', e.target.value)}
+                      placeholder="250 kr/døgn" style={{ flex: 1, minWidth: 0 }} />
+                    <button type="button" onClick={() => removeLine(i)} title="Fjern linje"
+                      className="flex items-center justify-center rounded-lg transition-colors hover:bg-gray-100"
+                      style={{ width: 32, height: 32, flexShrink: 0, color: 'var(--muted)' }}>
+                      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+                        <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+                      </svg>
+                    </button>
+                  </div>
+                ))}
+                <button type="button" onClick={addLine}
+                  className="w-full rounded-xl py-2.5 text-sm font-medium transition-colors hover:bg-gray-100"
+                  style={{ backgroundColor: 'var(--gray-50)', border: '1.5px dashed var(--border)', color: 'var(--muted)' }}>
+                  + Legg til infolinje
+                </button>
+              </div>
+              <p style={{ fontSize: '0.72rem', color: 'var(--muted)', marginTop: 6 }}>
+                Vises som liste til høyre for QR-koden ved utskrift — f.eks. pris, depositum, kontakt.
+              </p>
             </div>
 
             {/* Farge */}
