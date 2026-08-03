@@ -1,6 +1,7 @@
 'use client'
 import { useRef, useState } from 'react'
 import { Category } from '@/types'
+import { LABEL_SHEETS, DEFAULT_SHEET, perSheet } from '@/lib/labelSheets'
 import StickerCard from './StickerCard'
 
 interface Props {
@@ -8,27 +9,27 @@ interface Props {
   onClose: () => void
 }
 
-type Format = 'sticker' | 'full'
-
-const SIZES: { mm: number; label: string; hint: string }[] = [
-  { mm: 45, label: 'Liten',    hint: '45 mm' },
-  { mm: 60, label: 'Standard', hint: '60 mm' },
-  { mm: 90, label: 'Stor',     hint: '90 mm' },
-]
-
 const COLORS = ['#000000', '#ef4444', '#f97316', '#eab308', '#22c55e', '#3b82f6', '#8b5cf6', '#ec4899']
 
 export default function PrintAllModal({ categories, onClose }: Props) {
   const printRef = useRef<HTMLDivElement>(null)
 
-  const [format,    setFormat]    = useState<Format>('sticker')
-  const [widthMm,   setWidthMm]   = useState(60)
+  const [sheetId,   setSheetId]   = useState(DEFAULT_SHEET.id)
+  const [offsetX,   setOffsetX]   = useState(0)
+  const [offsetY,   setOffsetY]   = useState(0)
   const [showBadge, setShowBadge] = useState(true)
   const [useColor,  setUseColor]  = useState(false)
   const [color,     setColor]     = useState(COLORS[0])
 
-  const fullPage = format === 'full'
+  const sheet    = LABEL_SHEETS.find(s => s.id === sheetId) || DEFAULT_SHEET
   const override = useColor ? color : null
+  const per      = perSheet(sheet)
+  const pageCount = Math.max(1, Math.ceil(categories.length / per))
+
+  // Del opp i ark
+  const pages: Category[][] = []
+  for (let i = 0; i < categories.length; i += per) pages.push(categories.slice(i, i + per))
+  if (pages.length === 0) pages.push([])
 
   const handlePrint = () => {
     const content = printRef.current
@@ -38,29 +39,26 @@ export default function PrintAllModal({ categories, onClose }: Props) {
     printWindow.document.write(`
       <html>
         <head>
-          <title>Alle stickere — QR Admin</title>
+          <title>Etiketter — QR Admin</title>
           <link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Syne:wght@400;700;800&family=DM+Sans:wght@300;400&display=swap" rel="stylesheet">
           <style>
             * { margin: 0; padding: 0; box-sizing: border-box; }
             body { background: white; font-family: sans-serif; }
-            /* flex-wrap fordi stickere med infoliste er bredere enn de uten */
-            .grid {
-              display: flex;
-              flex-wrap: wrap;
-              align-items: flex-start;
-              gap: ${fullPage ? '0' : '8mm'};
-              padding: ${fullPage ? '0' : '10mm'};
+            /* Etikettene plasseres absolutt, slik at de treffer cellene på arket */
+            .page {
+              position: relative;
+              width: 210mm;
+              height: 297mm;
+              page-break-after: always;
+              overflow: hidden;
             }
+            .page:last-child { page-break-after: auto; }
+            .cell { position: absolute; }
             .sticker-card { break-inside: avoid; page-break-inside: avoid; }
-            ${fullPage ? `
-            /* ett ark per QR-kode */
-            .grid > .sticker-card { page-break-after: always; }
-            .grid > .sticker-card:last-child { page-break-after: auto; }
-            ` : ''}
-            @page { size: A4 portrait; margin: ${fullPage ? '10mm' : '5mm'}; }
+            @page { size: A4 portrait; margin: 0; }
           </style>
         </head>
-        <body><div class="grid">${content.innerHTML}</div></body>
+        <body>${content.innerHTML}</body>
       </html>
     `)
     printWindow.document.close()
@@ -68,8 +66,9 @@ export default function PrintAllModal({ categories, onClose }: Props) {
     setTimeout(() => { printWindow.print(); printWindow.close() }, 700)
   }
 
-  // A4-arket er 190mm (~718px) bredt — skaleres ned i forhåndsvisningen
-  const previewScale = 0.22
+  // A4 er 210mm ≈ 794px — skaleres ned i forhåndsvisningen
+  const scale = 0.42
+  const A4_W = 794, A4_H = 1123
 
   const sectionLabel = (txt: string) => (
     <p style={{ fontSize: '0.72rem', fontWeight: 600, letterSpacing: '0.06em',
@@ -78,20 +77,48 @@ export default function PrintAllModal({ categories, onClose }: Props) {
     </p>
   )
 
-  const chip = (active: boolean) => ({
-    backgroundColor: active ? 'var(--black)' : 'var(--gray-50)',
-    color:           active ? 'var(--white)' : 'var(--muted)',
-    border:          `1.5px solid ${active ? 'var(--black)' : 'var(--border)'}`,
-  })
+  const toggle = (on: boolean, fn: () => void) => (
+    <button onClick={fn} role="switch" aria-checked={on}
+      className="rounded-full transition-all shrink-0"
+      style={{ width: 46, height: 26, padding: 3, backgroundColor: on ? 'var(--black)' : 'var(--gray-200)' }}>
+      <span style={{ display: 'block', width: 20, height: 20, borderRadius: '50%',
+        backgroundColor: 'var(--white)', transform: on ? 'translateX(20px)' : 'none',
+        transition: 'transform 0.15s' }} />
+    </button>
+  )
+
+  // Selve arkene — samme markup i forhåndsvisning og utskrift
+  const sheetMarkup = (
+    <>
+      {pages.map((page, p) => (
+        <div key={p} className="page"
+          style={{ position: 'relative', width: '210mm', height: '297mm', overflow: 'hidden',
+            backgroundColor: '#ffffff' }}>
+          {page.map((cat, i) => (
+            <div key={cat.id} className="cell"
+              style={{
+                position: 'absolute',
+                left: `${sheet.marginLeft + (i % sheet.cols) * sheet.pitchX + offsetX}mm`,
+                top:  `${sheet.marginTop + Math.floor(i / sheet.cols) * sheet.pitchY + offsetY}mm`,
+              }}>
+              <StickerCard category={cat} forPrint
+                widthMm={sheet.w} heightMm={sheet.h}
+                showBadge={showBadge} overrideColor={override} />
+            </div>
+          ))}
+        </div>
+      ))}
+    </>
+  )
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ backgroundColor: 'rgba(15,15,15,0.7)' }}>
       <div className="animate-fade-up w-full max-w-2xl rounded-2xl shadow-2xl" style={{ backgroundColor: 'var(--surface)', border: '1px solid var(--border)', maxHeight: '90vh', display: 'flex', flexDirection: 'column' }}>
         <div className="p-8 pb-4 flex items-start justify-between">
           <div>
-            <h2 className="font-display text-xl" style={{ fontWeight: 700 }}>Print alle stickere</h2>
+            <h2 className="font-display text-xl" style={{ fontWeight: 700 }}>Print etiketter</h2>
             <p style={{ color: 'var(--muted)', fontSize: '0.875rem', marginTop: 2 }}>
-              {categories.length} QR-koder — {fullPage ? 'ett ark per kode' : `${widthMm} mm, fyller arket radvis`}
+              {categories.length} QR-koder — {per} per ark, {pageCount} {pageCount === 1 ? 'ark' : 'ark'}
             </p>
           </div>
           <button onClick={onClose} style={{ color: 'var(--muted)', fontSize: '1.25rem', lineHeight: 1 }}>✕</button>
@@ -100,43 +127,48 @@ export default function PrintAllModal({ categories, onClose }: Props) {
         {/* Innstillinger */}
         <div className="px-8 pb-5 space-y-5" style={{ borderBottom: '1px solid var(--border)' }}>
 
-          {/* Format */}
+          {/* Arktype */}
           <div>
-            {sectionLabel('FORMAT')}
-            <div className="flex gap-2">
-              {([
-                { key: 'sticker' as Format, label: 'Klistremerker', hint: 'flere per ark' },
-                { key: 'full'    as Format, label: 'Helt ark',      hint: 'ett per ark'   },
-              ]).map(f => (
-                <button key={f.key} onClick={() => setFormat(f.key)}
-                  className="flex-1 rounded-xl py-2.5 text-sm transition-all"
-                  style={chip(format === f.key)}>
-                  {f.label}
-                  <span style={{ display: 'block', fontSize: '0.7rem', opacity: 0.7 }}>{f.hint}</span>
-                </button>
-              ))}
-            </div>
+            {sectionLabel('ETIKETTARK')}
+            <select value={sheetId} onChange={e => setSheetId(e.target.value)}
+              style={{ width: '100%', borderRadius: 10, fontFamily: 'Inter, sans-serif', fontSize: '0.875rem' }}>
+              <optgroup label="A4 delt kant i kant">
+                {LABEL_SHEETS.filter(s => s.id.startsWith('a4-')).map(s => (
+                  <option key={s.id} value={s.id}>{s.name}</option>
+                ))}
+              </optgroup>
+              <optgroup label="Avery / Zweckform">
+                {LABEL_SHEETS.filter(s => !s.id.startsWith('a4-')).map(s => (
+                  <option key={s.id} value={s.id}>{s.name}</option>
+                ))}
+              </optgroup>
+            </select>
+            <p style={{ fontSize: '0.72rem', color: 'var(--muted)', marginTop: 6 }}>
+              Etikett {sheet.w} × {sheet.h} mm — {sheet.cols} × {sheet.rows} per ark.
+              Ta en testutskrift på vanlig papir og hold den mot etikettarket før du printer.
+            </p>
           </div>
 
-          {/* Størrelse — kun relevant for klistremerker */}
-          {!fullPage && (
-            <div>
-              {sectionLabel('STØRRELSE')}
-              <div className="flex gap-2">
-                {SIZES.map(s => (
-                  <button key={s.mm} onClick={() => setWidthMm(s.mm)}
-                    className="flex-1 rounded-xl py-2.5 text-sm transition-all"
-                    style={chip(widthMm === s.mm)}>
-                    {s.label}
-                    <span style={{ display: 'block', fontSize: '0.7rem', opacity: 0.7 }}>{s.hint}</span>
-                  </button>
-                ))}
-              </div>
-              <p style={{ fontSize: '0.72rem', color: 'var(--muted)', marginTop: 6 }}>
-                QR-koder med infoliste blir automatisk bredere for å få plass til teksten.
-              </p>
+          {/* Finjustering */}
+          <div>
+            {sectionLabel('JUSTERING (MM)')}
+            <div className="flex gap-3">
+              {([
+                { label: 'Høyre/venstre', value: offsetX, set: setOffsetX },
+                { label: 'Opp/ned',       value: offsetY, set: setOffsetY },
+              ]).map(f => (
+                <div key={f.label} className="flex-1">
+                  <input type="number" step="0.5" value={f.value}
+                    onChange={e => f.set(parseFloat(e.target.value) || 0)}
+                    style={{ width: '100%', borderRadius: 10, fontSize: '0.875rem' }} />
+                  <p style={{ fontSize: '0.7rem', color: 'var(--muted)', marginTop: 4 }}>{f.label}</p>
+                </div>
+              ))}
             </div>
-          )}
+            <p style={{ fontSize: '0.72rem', color: 'var(--muted)', marginTop: 6 }}>
+              Skyv alle etikettene hvis skriveren treffer litt skjevt.
+            </p>
+          </div>
 
           {/* Badge */}
           <div className="flex items-center justify-between">
@@ -144,14 +176,7 @@ export default function PrintAllModal({ categories, onClose }: Props) {
               <p style={{ fontSize: '0.85rem', fontWeight: 500, color: 'var(--ink)' }}>Hylle-badge</p>
               <p style={{ fontSize: '0.75rem', color: 'var(--muted)' }}>Fargefeltet med hyllenummer øverst</p>
             </div>
-            <button onClick={() => setShowBadge(b => !b)} role="switch" aria-checked={showBadge}
-              className="rounded-full transition-all shrink-0"
-              style={{ width: 46, height: 26, padding: 3,
-                backgroundColor: showBadge ? 'var(--black)' : 'var(--gray-200)' }}>
-              <span style={{ display: 'block', width: 20, height: 20, borderRadius: '50%',
-                backgroundColor: 'var(--white)', transform: showBadge ? 'translateX(20px)' : 'none',
-                transition: 'transform 0.15s' }} />
-            </button>
+            {toggle(showBadge, () => setShowBadge(b => !b))}
           </div>
 
           {/* Farge */}
@@ -163,14 +188,7 @@ export default function PrintAllModal({ categories, onClose }: Props) {
                   {useColor ? 'Overstyrer fargen på hver QR-kode' : 'Hver QR-kode beholder sin egen farge'}
                 </p>
               </div>
-              <button onClick={() => setUseColor(v => !v)} role="switch" aria-checked={useColor}
-                className="rounded-full transition-all shrink-0"
-                style={{ width: 46, height: 26, padding: 3,
-                  backgroundColor: useColor ? 'var(--black)' : 'var(--gray-200)' }}>
-                <span style={{ display: 'block', width: 20, height: 20, borderRadius: '50%',
-                  backgroundColor: 'var(--white)', transform: useColor ? 'translateX(20px)' : 'none',
-                  transition: 'transform 0.15s' }} />
-              </button>
+              {toggle(useColor, () => setUseColor(v => !v))}
             </div>
             {useColor && (
               <div className="flex items-center gap-2 flex-wrap">
@@ -190,29 +208,16 @@ export default function PrintAllModal({ categories, onClose }: Props) {
           </div>
         </div>
 
-        {/* Forhåndsvisning */}
-        <div className="overflow-y-auto px-8 py-5 flex-1">
-          {fullPage ? (
-            // Skalert ned, men markupen som printes er i full størrelse
-            <div style={{ height: 1047 * previewScale * Math.min(categories.length, 3) + 16, overflow: 'hidden' }}>
-              <div style={{ transform: `scale(${previewScale})`, transformOrigin: 'top left', width: 718 }}>
-                <div ref={printRef}>
-                  {categories.map(cat => (
-                    <StickerCard key={cat.id} category={cat} fullPage
-                      showBadge={showBadge} overrideColor={override} />
-                  ))}
-                </div>
+        {/* Forhåndsvisning — nedskalert, men markupen som printes er i full størrelse */}
+        <div className="overflow-y-auto px-8 py-5 flex-1" style={{ backgroundColor: 'var(--gray-100)' }}>
+          <div style={{ width: A4_W * scale, height: (A4_H * pages.length + 16 * (pages.length - 1)) * scale,
+            overflow: 'hidden', margin: '0 auto' }}>
+            <div style={{ transform: `scale(${scale})`, transformOrigin: 'top left', width: A4_W }}>
+              <div ref={printRef} style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+                {sheetMarkup}
               </div>
             </div>
-          ) : (
-            <div ref={printRef}
-              style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'flex-start', gap: '12px' }}>
-              {categories.map(cat => (
-                <StickerCard key={cat.id} category={cat} forPrint
-                  widthMm={widthMm} showBadge={showBadge} overrideColor={override} />
-              ))}
-            </div>
-          )}
+          </div>
         </div>
 
         <div className="p-8 pt-4 flex gap-3" style={{ borderTop: '1px solid var(--border)' }}>
@@ -228,7 +233,7 @@ export default function PrintAllModal({ categories, onClose }: Props) {
             className="flex-1 rounded-xl py-3 text-sm font-medium transition-all hover:opacity-90 flex items-center justify-center gap-2"
             style={{ backgroundColor: 'var(--black)', color: 'var(--white)', fontFamily: 'Syne, sans-serif', fontWeight: 600 }}
           >
-            <span>🖨</span> Print {categories.length} QR-koder
+            <span>🖨</span> Print {pageCount} {pageCount === 1 ? 'ark' : 'ark'}
           </button>
         </div>
       </div>
