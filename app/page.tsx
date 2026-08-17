@@ -102,14 +102,36 @@ export default function HomePage() {
   const fetchAll = useCallback(async () => {
     setLoading(true)
     setError('')
-    const [foldersRes, catsRes] = await Promise.all([
-      supabase.from('folders').select('*').order('created_at', { ascending: false }),
-      supabase.from('categories').select('*').order('created_at', { ascending: false }),
-    ])
+
+    /*
+     * PostgREST kapper svaret på 1000 rader som standard. Uten paging her ser
+     * appen bare de 1000 nyeste kodene — og importens duplikatsjekk, som
+     * sammenligner mot nettopp denne listen, ville klassifisert alt eldre som
+     * «nytt» og laget en tvilling av hver kode som allerede henger printet.
+     */
+    const SIDE = 1000
+    const alleKategorier: Category[] = []
+    let kategorifeil: string | null = null
+    for (let fra = 0; ; fra += SIDE) {
+      const { data, error } = await supabase
+        .from('categories')
+        .select('*')
+        .order('created_at', { ascending: false })
+        .order('id')                                  // stabil rekkefølge ved likt tidsstempel
+        .range(fra, fra + SIDE - 1)
+      if (error) { kategorifeil = error.message; break }
+      const bolk = (data || []) as Category[]
+      alleKategorier.push(...bolk)
+      if (bolk.length < SIDE) break
+    }
+
+    const foldersRes = await supabase
+      .from('folders').select('*').order('created_at', { ascending: false })
+
     if (foldersRes.error) setError(foldersRes.error.message)
     else setFolders(foldersRes.data || [])
-    if (catsRes.error) setError(catsRes.error.message)
-    else setCategories(catsRes.data || [])
+    if (kategorifeil) setError(kategorifeil)
+    else setCategories(alleKategorier)
     setLoading(false)
   }, [])
 

@@ -28,23 +28,46 @@ export interface ParseResultat {
   kilde: 'json' | 'csv' | null
 }
 
-/** Skiller en CSV-linje etter RFC 4180 — doble anførselstegn er escapet som "". */
-function delCsvLinje(linje: string, skille: string): string[] {
-  const ut: string[] = []
+/**
+ * Deler hele CSV-teksten i rader og felt i én gjennomgang, etter RFC 4180.
+ *
+ * Å splitte på linjeskift først og parse sitater etterpå er den vanlige feilen:
+ * et sitert felt får lov til å inneholde linjeskift, og et kategorinavn eller
+ * en beskrivelse limt inn fra Excel gjør det gjerne. Da blir én rad delt i to
+ * halve, og begge avvises.
+ */
+function delCsv(tekst: string, skille: string): string[][] {
+  const rader: string[][] = []
+  let rad: string[] = []
   let felt = ''
   let iSitat = false
-  for (let i = 0; i < linje.length; i++) {
-    const c = linje[i]
+
+  for (let i = 0; i < tekst.length; i++) {
+    const c = tekst[i]
+
     if (iSitat) {
-      if (c === '"' && linje[i + 1] === '"') { felt += '"'; i++ }
+      if (c === '"' && tekst[i + 1] === '"') { felt += '"'; i++ }
       else if (c === '"') iSitat = false
       else felt += c
-    } else if (c === '"') iSitat = true
-    else if (c === skille) { ut.push(felt); felt = '' }
-    else felt += c
+      continue
+    }
+
+    if (c === '"') { iSitat = true; continue }
+    if (c === skille) { rad.push(felt); felt = ''; continue }
+    if (c === '\r') continue                       // CRLF: hopp over, \n avslutter
+    if (c === '\n') {
+      rad.push(felt); felt = ''
+      // Tomme linjer skal ikke bli rader med ett tomt felt.
+      if (rad.length > 1 || rad[0] !== '') rader.push(rad)
+      rad = []
+      continue
+    }
+    felt += c
   }
-  ut.push(felt)
-  return ut
+
+  rad.push(felt)
+  if (rad.length > 1 || rad[0] !== '') rader.push(rad)
+  return rader
 }
 
 /** Gjetter skilletegn på overskriftslinja — Lagersystemet kan eksportere begge. */
@@ -154,18 +177,22 @@ export function parseImport(tekst: string): ParseResultat {
     // BOM-en Lagersystemet skriver for Excel ville ellers blitt en del av
     // den første kolonneoverskriften.
     const utenBom = rensa.charCodeAt(0) === 0xfeff ? rensa.slice(1) : rensa
-    const linjer = utenBom.split(/\r?\n/).filter(l => l.trim())
-    if (linjer.length < 2) {
+
+    // Skilletegnet gjettes på første linje. Et sitert felt kan inneholde
+    // linjeskift, men overskriftsraden gjør det ikke.
+    const førsteLinje = utenBom.split('\n', 1)[0]
+    const skille = gjettSkilletegn(førsteLinje)
+
+    const alleRader = delCsv(utenBom, skille)
+    if (alleRader.length < 2) {
       return {
         rader: [],
         problemer: [{ rad: 0, navn: '', grunn: 'CSV-en har ingen datarader' }],
         kilde,
       }
     }
-    const skille = gjettSkilletegn(linjer[0])
-    const kolonner = delCsvLinje(linjer[0], skille).map(k => k.trim().toLowerCase())
-    for (const linje of linjer.slice(1)) {
-      const felt = delCsvLinje(linje, skille)
+    const kolonner = alleRader[0].map(k => k.trim().toLowerCase())
+    for (const felt of alleRader.slice(1)) {
       const rad: Record<string, unknown> = {}
       kolonner.forEach((kol, i) => { rad[kol] = felt[i] ?? '' })
       rad.qr_data = trygtJson<QRData | null>(rad.qr_data as string, null)

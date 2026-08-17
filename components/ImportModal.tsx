@@ -52,6 +52,8 @@ export default function ImportModal({ folders, existing, defaultFolderId, onClos
   const importer = async () => {
     setJobber(true)
     setFeil('')
+    let satt = 0
+    let oppdatert = 0
     try {
       const { data: { session } } = await supabase.auth.getSession()
       const userId = session?.user.id
@@ -67,6 +69,7 @@ export default function ImportModal({ folders, existing, defaultFolderId, onClos
         const bolk = plan.nye.slice(i, i + BOLK).map(r => ({ ...r, ...felles }))
         const { error } = await supabase.from('categories').insert(bolk)
         if (error) throw error
+        satt += bolk.length
       }
 
       for (const o of plan.oppdateres) {
@@ -77,12 +80,29 @@ export default function ImportModal({ folders, existing, defaultFolderId, onClos
           .update({ ...o.rad, folder_id: undefined, user_id: userId })
           .eq('id', o.id)
         if (error) throw error
+        oppdatert++
       }
 
-      setFerdig({ nye: plan.nye.length, oppdatert: plan.oppdateres.length })
+      setFerdig({ nye: satt, oppdatert })
       await onDone()
     } catch (e: unknown) {
-      setFeil(e instanceof Error ? e.message : 'Noe gikk galt under importen')
+      const melding = e instanceof Error ? e.message : 'Noe gikk galt under importen'
+      /*
+       * Hent inn på nytt før brukeren kan prøve igjen. Uten dette står
+       * `existing` med tilstanden fra før importen, og et nytt forsøk ville
+       * satt inn de allerede innsatte radene en gang til — 300 duplikate
+       * QR-koder med samme URL, som PrintAllModal deretter printer to ganger.
+       * Etter refetch ser planen hva som faktisk ligger inne, og «Importer»
+       * gjør bare det som står igjen.
+       */
+      if (satt > 0 || oppdatert > 0) {
+        try { await onDone() } catch { /* refetch-feil skal ikke skjule den egentlige feilen */ }
+      }
+      setFeil(
+        satt > 0 || oppdatert > 0
+          ? `${melding} — ${satt} ny${satt === 1 ? '' : 'e'} og ${oppdatert} oppdatert kom inn før det stoppet. Tallene over er regnet om; trykk Importer igjen for å ta resten.`
+          : melding,
+      )
     } finally {
       setJobber(false)
     }
