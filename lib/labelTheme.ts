@@ -5,8 +5,8 @@
  * ingen logo. «Hauge Maskin» setter merkefargen og legger HM-logoen nederst på
  * klistremerket, slik at utstyret er merket som vårt.
  *
- * Fargen er hentet fra app-ikonet (icon.png) så skjerm, app og utskrift bruker
- * nøyaktig samme røde.
+ * Fargen er den eksakte røden i logofila, så badge, ramme og logo bruker samme
+ * røde på skjerm og på papir.
  */
 export type LabelThemeId = 'plain' | 'hauge'
 
@@ -23,7 +23,7 @@ export interface LabelTheme {
   wordmark: string | null
 }
 
-export const HM_RED = '#e4151b'
+export const HM_RED = '#e40112'
 
 export const LABEL_THEMES: LabelTheme[] = [
   {

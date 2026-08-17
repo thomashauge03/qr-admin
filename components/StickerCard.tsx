@@ -4,7 +4,7 @@ import type { CSSProperties } from 'react'
 import { QRCodeSVG } from 'qrcode.react'
 import { Category, buildQRValue } from '@/types'
 import { LabelThemeId, getTheme } from '@/lib/labelTheme'
-import HaugeMaskinLogo from './HaugeMaskinLogo'
+import HaugeMaskinLogo, { LOGO_RATIO } from './HaugeMaskinLogo'
 
 interface Props {
   category: Category
@@ -36,9 +36,6 @@ const NUM: CSSProperties = { fontVariantNumeric: 'slashed-zero tabular-nums' }
 // presser den nummeret ut av feltet.
 const BADGE_TEXT = 'UTSTYR NUMMER'
 const BADGE_TEXT_SHORT = 'UTSTYR NR'
-
-// Bredde/høyde på HM-logoen — brukes til å regne ut hvor mye plass den tar
-const LOGO_RATIO = 256 / 152
 
 /**
  * Skriftstørrelse i mm som både får plass i høyden og på én linje i bredden.
@@ -87,7 +84,7 @@ export default function StickerCard({
   // mer høyde enn ID-teksten alene for å være lesbar på små etiketter.
   const showFoot = showId || showLogo
   const badgeH = showBadge ? availH * (landscape ? 0.2 : 0.19) : 0
-  const footH  = showFoot ? availH * ((landscape ? 0.09 : 0.08) + (showLogo ? 0.03 : 0)) : 0
+  const footH  = showFoot ? availH * ((landscape ? 0.09 : 0.08) + (showLogo ? 0.05 : 0)) : 0
 
   // Tekstkolonnens bredde og de enkelte blokkenes høyde
   let qrSide: number, textW: number, nameH: number, infoH: number
@@ -130,11 +127,14 @@ export default function StickerCard({
   const badgeText = badgeWidth < 55 ? BADGE_TEXT_SHORT : BADGE_TEXT
 
   // Logoen på etikettark: så høy bunnraden tillater, men aldri bredere enn en
-  // femtedel av etiketten — resten av raden skal være til navnetekst/ID.
-  const logoMm  = Math.min(footH * 0.85, textW * 0.2 / LOGO_RATIO)
-  const wordMm  = fitMm(footH * 0.42, textW * 0.42, theme.wordmark || '', 0.68)
-  // Ordmerket droppes når etiketten er for smal til at det blir lesbart
-  const showWord = !!theme.wordmark && (!isLabel || (textW >= 45 && wordMm >= 1.4))
+  // fjerdedel av etiketten — resten av raden skal være til ordmerke og ID.
+  const logoMm  = Math.min(footH * 0.9, textW * 0.26 / LOGO_RATIO)
+  // Ordmerket får bare den bredden logoen og ID-en levner i bunnraden
+  const idMm    = Math.min(footH * 0.5, textW * 0.05)
+  const wordRoom = textW - logoMm * LOGO_RATIO - (showId ? idMm * 0.65 * 8 : 0) - gap * 2
+  const wordMm  = fitMm(footH * 0.42, Math.max(0, wordRoom), theme.wordmark || '', 0.72)
+  // Ordmerket droppes når det ikke blir lesbart i plassen som er igjen
+  const showWord = !!theme.wordmark && (!isLabel || wordMm >= 1.4)
 
   const font = fullPage
     ? { label: '16pt', shelf: '30pt', name: '34pt', desc: '13pt', id: '10pt', infoLabel: '11pt', infoValue: '17pt', word: '12pt' }
@@ -145,7 +145,7 @@ export default function StickerCard({
         shelf:     mmPt(fitMm(badgeH * 0.5, badgeInnerW * 0.44, category.shelf_number, 0.63)),
         name:      mmPt(nameFontMm),
         desc:      mmPt(descFontMm),
-        id:        mmPt(Math.min(footH * 0.5, textW * 0.05)),
+        id:        mmPt(idMm),
         infoLabel: mmPt(Math.min(infoLineContent * 0.3, infoColW * 0.12)),
         infoValue: mmPt(fitMm(infoLineContent * 0.48, infoColW, longestInfoValue)),
         word:      mmPt(wordMm),
@@ -156,12 +156,12 @@ export default function StickerCard({
 
   // Høyde på logoen i hver modus
   const logoHeight = fullPage
-    ? '13mm'
+    ? '15mm'
     : isLabel
     ? `${Math.round(logoMm * 100) / 100}mm`
     : forPrint
-    ? `${Math.round(Math.max(2.5, innerFree * 0.09) * 10) / 10}mm`
-    : '16px'
+    ? `${Math.round(Math.max(2.5, innerFree * 0.11) * 10) / 10}mm`
+    : '18px'
 
   const qrWidth = fullPage
     ? (hasInfo ? '105mm' : '145mm')
