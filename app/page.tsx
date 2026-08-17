@@ -11,6 +11,7 @@ import PrintModal from '@/components/PrintModal'
 import PrintAllModal from '@/components/PrintAllModal'
 import FolderCard from '@/components/FolderCard'
 import FolderForm from '@/components/FolderForm'
+import ImportModal from '@/components/ImportModal'
 
 type View    = 'grid' | 'list'
 type SortKey = 'name' | 'shelf_number' | 'created_at'
@@ -44,6 +45,7 @@ export default function HomePage() {
   const [editFolder,     setEditFolder]     = useState<Folder | null>(null)
   const [folderDeleteConfirm, setFolderDeleteConfirm] = useState<string | null>(null)
   const [showMenu, setShowMenu] = useState(false)
+  const [showImport, setShowImport] = useState(false)
 
   // Fang opp OAuth-callback fra Chrome Custom Tab og redirect til app deep-link
   useEffect(() => {
@@ -230,6 +232,16 @@ export default function HomePage() {
                 <span style={{ fontSize: '0.9rem', fontWeight: 500 }}>Administrer brukere</span>
               </Link>
             )}
+            <button onClick={() => { setShowMenu(false); setShowImport(true) }}
+              className="flex items-center gap-3 w-full active:opacity-60"
+              style={{ padding: '14px 16px', color: 'var(--white)', borderBottom: '1px solid #333' }}>
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+                <polyline points="7 10 12 15 17 10"/>
+                <line x1="12" y1="15" x2="12" y2="3"/>
+              </svg>
+              <span style={{ fontSize: '0.9rem', fontWeight: 500 }}>Importer fra Lagersystem</span>
+            </button>
             <button onClick={() => { setShowMenu(false); handleSignOut() }}
               className="flex items-center gap-3 w-full active:opacity-60"
               style={{ padding: '14px 16px', color: '#ef4444' }}>
@@ -657,6 +669,15 @@ export default function HomePage() {
       )}
       {printCategory && <PrintModal category={printCategory} onClose={() => setPrintCategory(null)} />}
       {showPrintAll && <PrintAllModal categories={filtered} onClose={() => setShowPrintAll(false)} />}
+      {showImport && (
+        <ImportModal
+          folders={folders}
+          existing={categories}
+          defaultFolderId={activeFolder && activeFolder.id !== '__unfiled__' ? activeFolder.id : null}
+          onClose={() => setShowImport(false)}
+          onDone={fetchAll}
+        />
+      )}
     </div>
   )
 }
