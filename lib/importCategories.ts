@@ -15,6 +15,9 @@ import { Category, CategoryInsert, InfoLine, QRData, QRType } from '@/types'
 
 const GYLDIGE_TYPER: QRType[] = ['shop', 'url', 'text', 'email', 'phone', 'sms', 'wifi', 'location']
 
+/** Vertene vi godtar url-koder til. Samme adresse som hentFraLager. */
+const TILLATNE_QR_VERTAR = ['stock-smart-pi.vercel.app']
+
 export interface ImportProblem {
   /** 1-indeksert radnummer slik brukeren ser det, ikke array-indeks. */
   rad: number
@@ -105,6 +108,26 @@ function normaliser(rå: Record<string, unknown>): CategoryInsert | string {
 
   if (!qrData) return 'mangler qr_data'
   if (type === 'url' && !qrData.url?.trim()) return 'qr_type er url, men qr_data.url er tom'
+
+  /*
+   * qr_data.url går urørt gjennom buildQRValue() og blir selve innholdet i en
+   * QR-kode som henger et år på en hylle. Fram til nå var eneste sjekken at
+   * strengen ikke var tom — en fil fra feil sted kunne fått deg til å printe
+   * koder som sender folk hvor som helst. Vi importerer bare lenker inn i
+   * Lagersystemet.
+   */
+  if (type === 'url') {
+    let u: URL
+    try {
+      u = new URL(qrData.url!.trim())
+    } catch {
+      return 'qr_data.url er ikke en gyldig adresse'
+    }
+    if (u.protocol !== 'https:') return 'qr_data.url må være https'
+    if (!TILLATNE_QR_VERTAR.includes(u.hostname)) {
+      return `qr_data.url peker på fremmed vert «${u.hostname}»`
+    }
+  }
 
   // shelf_number er påkrevd i skjemaet. Heller en synlig strek enn en rad som
   // ikke lar seg redigere etterpå.

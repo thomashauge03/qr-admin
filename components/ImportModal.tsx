@@ -3,6 +3,7 @@ import React, { useEffect, useMemo, useRef, useState } from 'react'
 import { supabase } from '@/lib/supabase'
 import { Category, Folder } from '@/types'
 import { leggPlan, parseImport } from '@/lib/importCategories'
+import { hentQrGrunnlag } from '@/lib/hentFraLager'
 
 interface Props {
   folders: Folder[]
@@ -24,6 +25,8 @@ export default function ImportModal({ folders, existing, defaultFolderId, onClos
   const [folderId, setFolderId] = useState<string | null>(defaultFolderId)
   const [jobber, setJobber] = useState(false)
   const [feil, setFeil] = useState('')
+  const [hentekode, setHentekode] = useState('')
+  const [henter, setHenter] = useState(false)
   const [ferdig, setFerdig] = useState<{ nye: number; oppdatert: number } | null>(null)
   const filInput = useRef<HTMLInputElement>(null)
 
@@ -39,6 +42,19 @@ export default function ImportModal({ folders, existing, defaultFolderId, onClos
   const lesFil = async (fil: File) => {
     setFeil('')
     setTekst(await fil.text())
+  }
+
+  const hentFraLager = async () => {
+    setHenter(true)
+    setFeil('')
+    try {
+      setTekst(await hentQrGrunnlag(hentekode))
+      setHentekode('')   // koden er brukt; ingen grunn til å la den ligge synlig
+    } catch (e: unknown) {
+      setFeil(e instanceof Error ? e.message : 'Klarte ikke hente fra Lagersystemet')
+    } finally {
+      setHenter(false)
+    }
   }
 
   const limInn = async () => {
@@ -171,6 +187,32 @@ export default function ImportModal({ folders, existing, defaultFolderId, onClos
               {/* Kilde */}
               <div>
                 {merkelapp('DATA')}
+                {/* Hent rett fra Lagersystemet. Krever bare en kortlevd kode,
+                    ikke at brukeren flytter en hel JSON-blob. */}
+                <div className="mb-2 rounded-xl p-3" style={{ border: '1.5px solid var(--border)' }}>
+                  <div className="flex gap-2">
+                    <input
+                      value={hentekode}
+                      onChange={e => setHentekode(e.target.value)}
+                      placeholder="Lim inn hentekode fra Lagersystemet"
+                      autoComplete="off"
+                      spellCheck={false}
+                      style={{ fontFamily: 'JetBrains Mono, monospace', fontSize: '0.75rem' }}
+                    />
+                    <button type="button" onClick={hentFraLager} disabled={henter || !hentekode.trim()}
+                      className="rounded-xl px-4 shrink-0 active:scale-95"
+                      style={{
+                        backgroundColor: 'var(--black)', color: 'var(--white)', fontWeight: 600,
+                        fontSize: '0.85rem', opacity: henter || !hentekode.trim() ? 0.4 : 1,
+                      }}>
+                      {henter ? 'Henter…' : 'Hent'}
+                    </button>
+                  </div>
+                  <p style={{ fontSize: '0.7rem', color: 'var(--muted)', marginTop: 6 }}>
+                    Lag koden i Lagersystemet under QR-etiketter → Åpne eksport → Lag hentekode.
+                  </p>
+                </div>
+
                 <div className="flex gap-2 mb-2">
                   <button type="button" onClick={limInn}
                     className="flex-1 flex items-center justify-center gap-2 rounded-xl px-4 active:scale-95"
