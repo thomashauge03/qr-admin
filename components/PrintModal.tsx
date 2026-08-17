@@ -29,7 +29,10 @@ export default function PrintModal({ category, onClose }: Props) {
         <title>${fullPage ? 'A4' : 'Sticker'} — ${category.name}</title>
         <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
         <style>
-          * { margin:0; padding:0; box-sizing:border-box; }
+          /* print-color-adjust: ellers dropper skriveren bakgrunnsfargene, og
+             nummer-badgen kommer ut som grå tekst på hvitt i stedet for rød */
+          * { margin:0; padding:0; box-sizing:border-box;
+              -webkit-print-color-adjust: exact; print-color-adjust: exact; }
           body { display:flex; align-items:center; justify-content:center; min-height:100vh; background:white; }
           @page { size: A4 portrait; margin: ${fullPage ? '10mm' : '5mm'}; }
         </style>
@@ -37,7 +40,12 @@ export default function PrintModal({ category, onClose }: Props) {
     `)
     win.document.close()
     win.focus()
-    setTimeout(() => { win.print(); win.close() }, 700)
+    // Vent på at logoen er dekodet før print-dialogen åpnes
+    Promise.all([
+      new Promise(r => setTimeout(r, 700)),
+      ...Array.from(win.document.images).map(img =>
+        img.complete ? null : new Promise(r => { img.onload = img.onerror = r })),
+    ]).then(() => { win.print(); win.close() })
   }
 
   return (

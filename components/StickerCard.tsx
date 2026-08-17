@@ -32,19 +32,111 @@ const SANS = 'Inter, system-ui, sans-serif'
 const MONO = 'JetBrains Mono, ui-monospace, monospace'
 const NUM: CSSProperties = { fontVariantNumeric: 'slashed-zero tabular-nums' }
 
+/** Kutter teksten etter n linjer med ellipse i stedet for å flyte utenfor */
+const CLAMP = (lines: number): CSSProperties => ({
+  display: '-webkit-box',
+  WebkitBoxOrient: 'vertical',
+  WebkitLineClamp: lines,
+  overflow: 'hidden',
+  overflowWrap: 'anywhere',
+})
+
 // Teksten foran nummeret i badgen. Kortes ned på smale etiketter, ellers
 // presser den nummeret ut av feltet.
 const BADGE_TEXT = 'UTSTYR NUMMER'
 const BADGE_TEXT_SHORT = 'UTSTYR NR'
 
+// ── Tekstmåling ──────────────────────────────────────────────────────────
+// Et snitt-tegnbredde-anslag bommer med opptil 30 % mellom «Vibroplate» (0,48)
+// og «BETONGSAGBLAD 350MM» (0,62), og da ryker teksten ut på en linje ekstra.
+// Derfor måles den faktiske bredden med de samme fontene som utskriften bruker.
+type Vekt = 400 | 500 | 600
+const ANSLAG: Record<Vekt, number> = { 400: 0.52, 500: 0.56, 600: 0.56 }
+const målCache = new Map<string, number>()
+let måler: CanvasRenderingContext2D | null | undefined
+
+/** Bredden på teksten ved skriftstørrelse 1 (samme enhet som størrelsen) */
+const textW1 = (text: string, weight: Vekt = 600, tracking = 0, mono = false) => {
+  if (!text) return 0
+  const key = `${weight}|${tracking}|${mono ? 'm' : 's'}|${text}`
+  const cached = målCache.get(key)
+  if (cached !== undefined) return cached
+  if (måler === undefined) {
+    måler = typeof document === 'undefined' ? null : document.createElement('canvas').getContext('2d')
+  }
+  const navn = mono ? 'JetBrains Mono' : 'Inter'
+  let bredde: number
+  if (måler && typeof document !== 'undefined' && document.fonts?.check(`${weight} 16px ${navn}`)) {
+    måler.font = `${weight} 100px ${mono ? MONO : SANS}`
+    bredde = måler.measureText(text).width / 100 + tracking * text.length
+  } else {
+    // Server-rendering eller font ikke lastet ennå
+    bredde = text.length * ((mono ? 0.6 : ANSLAG[weight]) + tracking)
+  }
+  målCache.set(key, bredde)
+  return bredde
+}
+
+/** Største skriftstørrelse som får teksten til å stå på én linje innenfor bredden */
+const fitMm = (
+  heightBudget: number, width: number, text: string,
+  weight: Vekt = 600, tracking = 0, mono = false,
+) => Math.min(heightBudget, width / Math.max(0.05, textW1(text, weight, tracking, mono)))
+
 /**
- * Skriftstørrelse i mm som både får plass i høyden og på én linje i bredden.
- * `ratio` er snittbredden per tegn delt på skriftstørrelsen — målt i nettleser:
- * 0.55 for Inter i blandet skrift, 0.79 for versaler med sperring, 0.62 for
- * JetBrains Mono.
+ * Antall linjer teksten trenger — grådig ombrekking på de samme stedene
+ * nettleseren bruker (mellomrom og bindestrek), med ekte ordbredder.
+ *
+ * Er ett av ordene bredere enn linja, gis Infinity: da må skriften ned. Å la
+ * nettleseren dele midt i ordet gir både styggere resultat og flere linjer enn
+ * en modell kan forutsi — det er bedre å krympe til hele ord får plass.
  */
-const fitMm = (heightBudget: number, width: number, text: string, ratio = 0.55) =>
-  Math.min(heightBudget, width / (ratio * Math.max(6, text.length)))
+const wrapLines = (text: string, width: number, font: number, weight: Vekt, tracking: number) => {
+  let lines = 1, brukt = 0
+  for (const ord of text.split(/(?<=[\s-])/)) {
+    const full = textW1(ord, weight, tracking) * font
+    const uten = textW1(ord.trimEnd(), weight, tracking) * font
+    if (uten > width) return Infinity
+    if (brukt > 0 && brukt + uten > width) { lines++; brukt = full }
+    else brukt += full
+  }
+  return lines
+}
+
+/**
+ * Samme som `fitMm`, men teksten får bruke flere linjer. Prøver 1..maxLines og
+ * velger det linjeantallet som gir størst skrift — korte navn havner på én stor
+ * linje, lange navn brekkes i stedet for å krympe til ingenting.
+ *
+ * Største skrift som får teksten til å stå innenfor både bredden og høyden,
+ * med inntil `maxLines` linjer. Binærsøk, siden linjeantallet hopper i trinn.
+ */
+const fitBlock = (
+  heightBudget: number, width: number, text: string,
+  maxLines: number, weight: Vekt = 600, tracking = 0, lineHeight = 1.18,
+) => {
+  if (!text || width <= 0 || heightBudget <= 0) return { mm: 0, lines: 1 }
+  // Margin: canvas-målingen kjenner ikke tabular-nums og hinting på liten
+  // skrift, så den bommer et par prosent på tekst med tall
+  const linje = width * 0.96
+  const passer = (f: number) => {
+    const l = wrapLines(text, linje, f, weight, tracking)
+    return l <= maxLines && f * lineHeight * l <= heightBudget
+  }
+  let lo = 0.4, hi = Math.max(0.5, heightBudget / lineHeight)
+  if (!passer(lo)) return { mm: lo, lines: maxLines }
+  for (let i = 0; i < 24; i++) {
+    const mid = (lo + hi) / 2
+    if (passer(mid)) lo = mid; else hi = mid
+  }
+  // Klipp først når blokka faktisk er full — nettleseren kan brekke litt annerledes
+  const romForLinjer = Math.floor(heightBudget / (lo * lineHeight))
+  const trengs = wrapLines(text, linje, lo, weight, tracking)
+  return {
+    mm: lo,
+    lines: Math.max(Number.isFinite(trengs) ? trengs : 1, Math.min(maxLines, romForLinjer)),
+  }
+}
 
 export default function StickerCard({
   category, size = 160, forPrint = false, fullPage = false,
@@ -109,10 +201,17 @@ export default function StickerCard({
   // Badgen har innvendig padding som teksten ikke kan bruke
   const badgeInnerW = Math.max(1, textW - pad * 2)
 
-  // Navnet får plassen det trenger; beskrivelsen får det som er igjen i navneblokka
-  const nameFontMm = fitMm(nameH * (showDesc ? 0.38 : 0.5), textW, category.name)
-  const descBudget = nameH - gap - nameFontMm * 1.3 - gap / 2
-  const descFontMm = Math.max(0, Math.min(descBudget / 1.35, fitMm(nameH * 0.26, textW, category.description || '')))
+  // Navnet får plassen det trenger; beskrivelsen får det som er igjen i
+  // navneblokka. Begge kan gå over flere linjer når teksten er lang.
+  const harDesc = !!category.description && showDesc
+  const nameFit = fitBlock(nameH * (harDesc ? 0.64 : 1) - (isLabel ? gap / 2 : 0), textW, category.name, 4)
+  // Selv et veldig langt navn skal være lesbart — heller kutte enn å krympe
+  const nameFontMm = Math.max(nameFit.mm, Math.min(1.9, nameH * 0.3))
+  const nameLines = nameFit.lines
+  const descBudget = nameH - nameFontMm * 1.18 * nameLines - gap
+  const descFit = fitBlock(Math.max(0, descBudget), textW, category.description || '', 2, 400, 0, 1.25)
+  const descFontMm = Math.min(descFit.mm, nameFontMm * 0.72)
+  const descLines = descFit.lines
 
   // ── Fri modus (enkelt klistremerke uten fast høyde)
   const baseMm = w
@@ -126,13 +225,31 @@ export default function StickerCard({
   const badgeWidth = fullPage ? 162 : isLabel ? availW : innerFree
   const badgeText = badgeWidth < 55 ? BADGE_TEXT_SHORT : BADGE_TEXT
 
+  // «UTSTYR NUMMER» og selve nummeret står side om side i badgen. Hver for seg
+  // kan begge få plass og likevel sprenge feltet til sammen, så etter at hver
+  // er tilpasset høyden skaleres begge ned til summen går inn i bredden.
+  const badgeFit = (() => {
+    const wTekst = textW1(badgeText, 600, 0.1)
+    const wNr = textW1(category.shelf_number, 500, 0.02, true)
+    let label = Math.min(badgeH * 0.34, (badgeInnerW * 0.52) / Math.max(0.05, wTekst))
+    let shelf = Math.min(badgeH * 0.5, (badgeInnerW * 0.44) / Math.max(0.05, wNr))
+    const sum = label * wTekst + shelf * wNr
+    const rom = badgeInnerW * 0.94
+    if (sum > rom) { const k = rom / sum; label *= k; shelf *= k }
+    return { label, shelf }
+  })()
+
   // Logoen på etikettark: så høy bunnraden tillater, men aldri bredere enn en
   // fjerdedel av etiketten — resten av raden skal være til ordmerke og ID.
-  const logoMm  = Math.min(footH * 0.9, textW * 0.26 / LOGO_RATIO)
+  // Streken og lufta over bunnraden spiser av høyden dens
+  const footInnerH = Math.max(0.5, footH - (landscape ? gap / 2 + 0.2 : 0))
+  const logoMm  = Math.min(footInnerH * 0.9, textW * 0.26 / LOGO_RATIO)
   // Ordmerket får bare den bredden logoen og ID-en levner i bunnraden
-  const idMm    = Math.min(footH * 0.5, textW * 0.05)
-  const wordRoom = textW - logoMm * LOGO_RATIO - (showId ? idMm * 0.65 * 8 : 0) - gap * 2
-  const wordMm  = fitMm(footH * 0.42, Math.max(0, wordRoom), theme.wordmark || '', 0.72)
+  const idMm    = Math.min(footInnerH * 0.5, textW * 0.05)
+  const idTekst = category.id.slice(0, 8).toUpperCase()
+  const wordRoom = textW - logoMm * LOGO_RATIO
+    - (showId ? idMm * textW1(idTekst, 500, 0.03, true) : 0) - gap * 2.5
+  const wordMm  = fitMm(footInnerH * 0.42, Math.max(0, wordRoom), theme.wordmark || '', 600, 0.08)
   // Ordmerket droppes når det ikke blir lesbart i plassen som er igjen
   const showWord = !!theme.wordmark && (!isLabel || wordMm >= 1.4)
 
@@ -140,14 +257,13 @@ export default function StickerCard({
     ? { label: '16pt', shelf: '30pt', name: '34pt', desc: '13pt', id: '10pt', infoLabel: '11pt', infoValue: '17pt', word: '12pt' }
     : isLabel
     ? {
-        // Teksten og nummeret deler badgens bredde — begge må begrenses av den
-        label:     mmPt(fitMm(badgeH * 0.34, badgeInnerW * 0.52, badgeText, 0.79)),
-        shelf:     mmPt(fitMm(badgeH * 0.5, badgeInnerW * 0.44, category.shelf_number, 0.63)),
+        label:     mmPt(badgeFit.label),
+        shelf:     mmPt(badgeFit.shelf),
         name:      mmPt(nameFontMm),
         desc:      mmPt(descFontMm),
         id:        mmPt(idMm),
         infoLabel: mmPt(Math.min(infoLineContent * 0.3, infoColW * 0.12)),
-        infoValue: mmPt(fitMm(infoLineContent * 0.48, infoColW, longestInfoValue)),
+        infoValue: mmPt(fitMm(infoLineContent * 0.48, infoColW, longestInfoValue, 600)),
         word:      mmPt(wordMm),
       }
     : forPrint
@@ -314,12 +430,20 @@ export default function StickerCard({
           width: '100%',
           height: isLabel ? `${nameH}mm` : undefined,
           overflow: 'hidden',
+          // Liggende etiketter har ofte luft til overs i navneblokka — da ser
+          // det ryddigere ut at teksten står midt i den enn klistret i toppen
+          display: landscape ? 'flex' : undefined,
+          flexDirection: landscape ? 'column' : undefined,
+          justifyContent: landscape ? 'center' : undefined,
           textAlign: landscape ? 'left' : 'center',
           borderTop: landscape ? undefined : `1px solid ${accentColor}22`,
           paddingTop: landscape ? 0 : fullPage ? '8mm' : isLabel ? `${gap}mm` : forPrint ? `${padMm / 2}mm` : '10px',
           marginTop: landscape ? `${gap}mm` : fullPage ? '10mm' : isLabel ? `${gap}mm` : forPrint ? `${padMm / 2}mm` : '8px',
         }}
       >
+        {/* Egen innpakning: som flex-barn ville avsnittene fått `display`
+            blokkert, og da slutter linjekuttingen under å virke */}
+        <div style={{ width: '100%', minWidth: 0 }}>
         <p
           style={{
             ...NUM,
@@ -328,13 +452,16 @@ export default function StickerCard({
             fontFamily: SANS,
             fontWeight: 600,
             color: '#0f0f0f',
-            lineHeight: 1.2,
+            lineHeight: 1.18,
             letterSpacing: '-0.005em',
+            // Lange navn brekkes over inntil tre linjer og kuttes med ellipse
+            // hvis de fortsatt ikke får plass, i stedet for å velte layouten
+            ...(isLabel ? CLAMP(nameLines) : null),
           }}
         >
           {category.name}
         </p>
-        {category.description && showDesc && (
+        {category.description && showDesc && descFontMm > 0.9 && (
           <p
             style={{
               fontSize: font.desc,
@@ -344,11 +471,13 @@ export default function StickerCard({
               marginTop: fullPage ? '4mm' : isLabel ? `${gap / 2}mm` : '3px',
               fontFamily: SANS,
               fontWeight: 400,
+              ...(isLabel ? CLAMP(descLines) : null),
             }}
           >
             {category.description}
           </p>
         )}
+        </div>
       </div>
   )
 
@@ -369,12 +498,18 @@ export default function StickerCard({
           height: isLabel ? `${footH}mm` : undefined,
           flexShrink: 0,
           overflow: 'hidden',
+          // Liggende etikett har ingen strek over bunnraden fra før — uten den
+          // flyter logoen og ID-en løst under teksten
+          borderTop: landscape ? `0.2mm solid ${accentColor}33` : undefined,
+          paddingTop: landscape ? `${gap / 2}mm` : undefined,
           marginTop: fullPage ? '6mm' : isLabel ? `${gap}mm` : forPrint ? `${padMm / 3}mm` : '8px',
         }}
       >
         {showLogo && (
+          // Ordmerket kan krympes/klippes hvis målingen bommer — logoen og
+          // ID-en skal aldri presses ut over etikettkanten
           <span style={{
-            display: 'flex', alignItems: 'center', minWidth: 0, flexShrink: 0,
+            display: 'flex', alignItems: 'center', minWidth: 0, flexShrink: 1, overflow: 'hidden',
             gap: isLabel ? `${gap * 0.8}mm` : fullPage ? '4mm' : forPrint ? '1.5mm' : '7px',
           }}>
             <HaugeMaskinLogo height={logoHeight} />

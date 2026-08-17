@@ -57,7 +57,10 @@ export default function PrintAllModal({ categories, onClose }: Props) {
           <title>Etiketter — QR Admin</title>
           <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
           <style>
-            * { margin: 0; padding: 0; box-sizing: border-box; }
+            /* Uten print-color-adjust dropper skriveren bakgrunnsfargene, og da
+               kommer nummer-badgen ut som grå tekst på hvitt i stedet for rød */
+            * { margin: 0; padding: 0; box-sizing: border-box;
+                -webkit-print-color-adjust: exact; print-color-adjust: exact; }
             body { background: white; font-family: sans-serif; }
             /* Etikettene plasseres absolutt, slik at de treffer cellene på arket */
             .page {
@@ -78,7 +81,12 @@ export default function PrintAllModal({ categories, onClose }: Props) {
     `)
     printWindow.document.close()
     printWindow.focus()
-    setTimeout(() => { printWindow.print(); printWindow.close() }, 700)
+    // Vent på at logoene er dekodet før print-dialogen åpnes
+    Promise.all([
+      new Promise(r => setTimeout(r, 700)),
+      ...Array.from(printWindow.document.images).map(img =>
+        img.complete ? null : new Promise(r => { img.onload = img.onerror = r })),
+    ]).then(() => { printWindow.print(); printWindow.close() })
   }
 
   // A4 er 210mm ≈ 794px — skaleres ned i forhåndsvisningen
