@@ -15,8 +15,10 @@ export interface LabelTheme {
   name: string
   /** Kort forklaring i print-dialogene */
   hint: string
-  /** Farge på badge og ramme. null = behold fargen QR-koden har fra før */
+  /** Farge på nummer-badgen. null = behold fargen QR-koden har fra før */
   accent: string | null
+  /** Farge på ramme og skillestreker. null = følg `accent` */
+  border: string | null
   /** Vis HM-logoen nederst på etiketten */
   logo: boolean
   /** Tekst ved siden av logoen — droppes automatisk på smale etiketter */
@@ -31,14 +33,17 @@ export const LABEL_THEMES: LabelTheme[] = [
     name: 'Standard',
     hint: 'Nøytral etikett uten logo',
     accent: null,
+    border: null,
     logo: false,
     wordmark: null,
   },
   {
     id: 'hauge',
     name: 'Hauge Maskin',
-    hint: 'HM-logo nederst og rød merkefarge',
+    hint: 'HM-logo, rød badge og svart ramme',
     accent: HM_RED,
+    // Svart ramme som konturen i logoen — rødt er forbeholdt badgen
+    border: '#000000',
     logo: true,
     wordmark: 'HAUGE MASKIN',
   },

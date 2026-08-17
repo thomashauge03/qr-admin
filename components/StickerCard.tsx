@@ -149,6 +149,8 @@ export default function StickerCard({
   const theme = getTheme(themeId)
   // En valgt fellesfarge går foran temaet, som igjen går foran QR-kodens egen
   const accentColor = overrideColor || theme.accent || category.color || '#0f0f0f'
+  // Ramme og skillestreker kan ha egen farge — HM-temaet har svart ramme
+  const frameColor = overrideColor || theme.border || theme.accent || category.color || '#0f0f0f'
   const showLogo = theme.logo
 
   const infoLines = (category.info_lines || []).filter(l => l.label || l.value)
@@ -306,7 +308,7 @@ export default function StickerCard({
         <div
           key={i}
           style={{
-            borderBottom: `1px solid ${accentColor}22`,
+            borderBottom: `1px solid ${frameColor}22`,
             paddingBottom: isLabel ? `${gap / 2}mm` : fullPage ? '3mm' : forPrint ? '1mm' : '6px',
           }}
         >
@@ -436,7 +438,7 @@ export default function StickerCard({
           flexDirection: landscape ? 'column' : undefined,
           justifyContent: landscape ? 'center' : undefined,
           textAlign: landscape ? 'left' : 'center',
-          borderTop: landscape ? undefined : `1px solid ${accentColor}22`,
+          borderTop: landscape ? undefined : `1px solid ${frameColor}22`,
           paddingTop: landscape ? 0 : fullPage ? '8mm' : isLabel ? `${gap}mm` : forPrint ? `${padMm / 2}mm` : '10px',
           marginTop: landscape ? `${gap}mm` : fullPage ? '10mm' : isLabel ? `${gap}mm` : forPrint ? `${padMm / 2}mm` : '8px',
         }}
@@ -500,7 +502,7 @@ export default function StickerCard({
           overflow: 'hidden',
           // Liggende etikett har ingen strek over bunnraden fra før — uten den
           // flyter logoen og ID-en løst under teksten
-          borderTop: landscape ? `0.2mm solid ${accentColor}33` : undefined,
+          borderTop: landscape ? `0.2mm solid ${frameColor}33` : undefined,
           paddingTop: landscape ? `${gap / 2}mm` : undefined,
           marginTop: fullPage ? '6mm' : isLabel ? `${gap}mm` : forPrint ? `${padMm / 3}mm` : '8px',
         }}
@@ -558,7 +560,7 @@ export default function StickerCard({
     overflow: isLabel ? 'hidden' : undefined,
     padding: fullPage ? '14mm' : forPrint ? `${padMm}mm` : '20px',
     backgroundColor: '#ffffff',
-    border: `${fullPage ? '4px' : isLabel ? '0.4mm' : '2px'} solid ${accentColor}`,
+    border: `${fullPage ? '4px' : isLabel ? '0.4mm' : '2px'} solid ${frameColor}`,
     borderRadius: fullPage ? '8mm' : isLabel ? `${pad}mm` : forPrint ? '4mm' : '16px',
     fontFamily: SANS,
     pageBreakInside: 'avoid',
