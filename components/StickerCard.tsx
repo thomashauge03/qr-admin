@@ -3,6 +3,8 @@
 import type { CSSProperties } from 'react'
 import { QRCodeSVG } from 'qrcode.react'
 import { Category, buildQRValue } from '@/types'
+import { LabelThemeId, getTheme } from '@/lib/labelTheme'
+import HaugeMaskinLogo from './HaugeMaskinLogo'
 
 interface Props {
   category: Category
@@ -18,6 +20,8 @@ interface Props {
   showBadge?: boolean
   /** Overstyrer fargen som er lagret på QR-koden */
   overrideColor?: string | null
+  /** Profil på etiketten — 'hauge' gir HM-logo og merkefarge */
+  theme?: LabelThemeId
 }
 
 const mmPt = (mm: number) => `${Math.round(mm * 2.8346 * 10) / 10}pt`
@@ -33,6 +37,9 @@ const NUM: CSSProperties = { fontVariantNumeric: 'slashed-zero tabular-nums' }
 const BADGE_TEXT = 'UTSTYR NUMMER'
 const BADGE_TEXT_SHORT = 'UTSTYR NR'
 
+// Bredde/høyde på HM-logoen — brukes til å regne ut hvor mye plass den tar
+const LOGO_RATIO = 256 / 152
+
 /**
  * Skriftstørrelse i mm som både får plass i høyden og på én linje i bredden.
  * `ratio` er snittbredden per tegn delt på skriftstørrelsen — målt i nettleser:
@@ -44,13 +51,16 @@ const fitMm = (heightBudget: number, width: number, text: string, ratio = 0.55) 
 
 export default function StickerCard({
   category, size = 160, forPrint = false, fullPage = false,
-  widthMm, heightMm, showBadge = true, overrideColor,
+  widthMm, heightMm, showBadge = true, overrideColor, theme: themeId,
 }: Props) {
   // Samme innhold som vises på skjermen: URL, wifi, tlf osv. ut fra qr_type,
   // med shop-JSON som fallback. Tidligere kodet utskriften alltid shop-JSON.
   const qrValue = buildQRValue(category)
 
-  const accentColor = overrideColor || category.color || '#0f0f0f'
+  const theme = getTheme(themeId)
+  // En valgt fellesfarge går foran temaet, som igjen går foran QR-kodens egen
+  const accentColor = overrideColor || theme.accent || category.color || '#0f0f0f'
+  const showLogo = theme.logo
 
   const infoLines = (category.info_lines || []).filter(l => l.label || l.value)
   const hasInfo = infoLines.length > 0
@@ -73,20 +83,23 @@ export default function StickerCard({
   // for over den — ellers begrenser høyden QR-en til under halv størrelse.
   const landscape = isLabel && w > h * 1.15
 
+  // Bunnraden rommer logo (til venstre) og ID (til høyre). Logoen trenger litt
+  // mer høyde enn ID-teksten alene for å være lesbar på små etiketter.
+  const showFoot = showId || showLogo
   const badgeH = showBadge ? availH * (landscape ? 0.2 : 0.19) : 0
-  const idH    = showId ? availH * (landscape ? 0.09 : 0.08) : 0
+  const footH  = showFoot ? availH * ((landscape ? 0.09 : 0.08) + (showLogo ? 0.03 : 0)) : 0
 
   // Tekstkolonnens bredde og de enkelte blokkenes høyde
   let qrSide: number, textW: number, nameH: number, infoH: number
   if (landscape) {
     qrSide = Math.max(4, Math.min(availH, availW * 0.5))
     textW  = Math.max(1, availW - qrSide - gap)
-    const rest = availH - badgeH - idH - gap * ((showBadge ? 1 : 0) + (showId ? 1 : 0))
+    const rest = availH - badgeH - footH - gap * ((showBadge ? 1 : 0) + (showFoot ? 1 : 0))
     infoH  = hasInfo ? rest * 0.55 - gap : 0
     nameH  = hasInfo ? rest * 0.45 : rest
   } else {
     nameH = availH * (showDesc ? 0.28 : 0.2)
-    const qrBudget = availH - badgeH - nameH - idH - gap * (showBadge ? 3 : 2)
+    const qrBudget = availH - badgeH - nameH - footH - gap * (showBadge ? 3 : 2)
     qrSide = Math.max(4, Math.min(qrBudget, hasInfo ? availW * 0.42 : availW))
     textW  = availW
     infoH  = 0
@@ -116,8 +129,15 @@ export default function StickerCard({
   const badgeWidth = fullPage ? 162 : isLabel ? availW : innerFree
   const badgeText = badgeWidth < 55 ? BADGE_TEXT_SHORT : BADGE_TEXT
 
+  // Logoen på etikettark: så høy bunnraden tillater, men aldri bredere enn en
+  // femtedel av etiketten — resten av raden skal være til navnetekst/ID.
+  const logoMm  = Math.min(footH * 0.85, textW * 0.2 / LOGO_RATIO)
+  const wordMm  = fitMm(footH * 0.42, textW * 0.42, theme.wordmark || '', 0.68)
+  // Ordmerket droppes når etiketten er for smal til at det blir lesbart
+  const showWord = !!theme.wordmark && (!isLabel || (textW >= 45 && wordMm >= 1.4))
+
   const font = fullPage
-    ? { label: '16pt', shelf: '30pt', name: '34pt', desc: '13pt', id: '10pt', infoLabel: '11pt', infoValue: '17pt' }
+    ? { label: '16pt', shelf: '30pt', name: '34pt', desc: '13pt', id: '10pt', infoLabel: '11pt', infoValue: '17pt', word: '12pt' }
     : isLabel
     ? {
         // Teksten og nummeret deler badgens bredde — begge må begrenses av den
@@ -125,13 +145,23 @@ export default function StickerCard({
         shelf:     mmPt(fitMm(badgeH * 0.5, badgeInnerW * 0.44, category.shelf_number, 0.63)),
         name:      mmPt(nameFontMm),
         desc:      mmPt(descFontMm),
-        id:        mmPt(Math.min(idH * 0.6, textW * 0.05)),
+        id:        mmPt(Math.min(footH * 0.5, textW * 0.05)),
         infoLabel: mmPt(Math.min(infoLineContent * 0.3, infoColW * 0.12)),
         infoValue: mmPt(fitMm(infoLineContent * 0.48, infoColW, longestInfoValue)),
+        word:      mmPt(wordMm),
       }
     : forPrint
-    ? { label: pt(7), shelf: pt(9), name: pt(10), desc: pt(7), id: pt(6), infoLabel: pt(5), infoValue: pt(7.5) }
-    : { label: '10px', shelf: '13px', name: '14px', desc: '10px', id: '9px', infoLabel: '8px', infoValue: '12px' }
+    ? { label: pt(7), shelf: pt(9), name: pt(10), desc: pt(7), id: pt(6), infoLabel: pt(5), infoValue: pt(7.5), word: pt(5.5) }
+    : { label: '10px', shelf: '13px', name: '14px', desc: '10px', id: '9px', infoLabel: '8px', infoValue: '12px', word: '9px' }
+
+  // Høyde på logoen i hver modus
+  const logoHeight = fullPage
+    ? '13mm'
+    : isLabel
+    ? `${Math.round(logoMm * 100) / 100}mm`
+    : forPrint
+    ? `${Math.round(Math.max(2.5, innerFree * 0.09) * 10) / 10}mm`
+    : '16px'
 
   const qrWidth = fullPage
     ? (hasInfo ? '105mm' : '145mm')
@@ -322,23 +352,63 @@ export default function StickerCard({
       </div>
   )
 
-  // ID nederst — droppes på små etiketter der plassen trengs til navnet
-  const idEl = showId && (
-      <p
+  // Bunnraden: logo til venstre og ID til høyre. ID-en droppes på små
+  // etiketter der plassen trengs til navnet, og hele raden faller bort hvis
+  // temaet er uten logo.
+  const footEl = showFoot && (
+      <div
         style={{
-          ...NUM,
-          fontSize: font.id,
-          color: '#a8a39c',
-          margin: 0,
-          lineHeight: 1.2,
-          height: isLabel ? `${idH}mm` : undefined,
+          boxSizing: 'border-box',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: landscape
+            ? 'flex-start'
+            : showLogo && showId ? 'space-between' : 'center',
+          gap: isLabel ? `${gap}mm` : fullPage ? '5mm' : forPrint ? `${padMm / 2}mm` : '10px',
+          width: '100%',
+          height: isLabel ? `${footH}mm` : undefined,
+          flexShrink: 0,
+          overflow: 'hidden',
           marginTop: fullPage ? '6mm' : isLabel ? `${gap}mm` : forPrint ? `${padMm / 3}mm` : '8px',
-          fontFamily: MONO,
-          letterSpacing: '0.03em',
         }}
       >
-        {category.id.slice(0, 8).toUpperCase()}
-      </p>
+        {showLogo && (
+          <span style={{
+            display: 'flex', alignItems: 'center', minWidth: 0, flexShrink: 0,
+            gap: isLabel ? `${gap * 0.8}mm` : fullPage ? '4mm' : forPrint ? '1.5mm' : '7px',
+          }}>
+            <HaugeMaskinLogo height={logoHeight} />
+            {showWord && (
+              <span style={{
+                fontSize: font.word,
+                fontFamily: SANS,
+                fontWeight: 600,
+                letterSpacing: '0.08em',
+                color: '#0f0f0f',
+                whiteSpace: 'nowrap',
+                lineHeight: 1,
+              }}>
+                {theme.wordmark}
+              </span>
+            )}
+          </span>
+        )}
+        {showId && (
+          <span
+            style={{
+              ...NUM,
+              fontSize: font.id,
+              color: '#a8a39c',
+              lineHeight: 1.2,
+              fontFamily: MONO,
+              letterSpacing: '0.03em',
+              whiteSpace: 'nowrap',
+            }}
+          >
+            {category.id.slice(0, 8).toUpperCase()}
+          </span>
+        )}
+      </div>
   )
 
   const cardStyle: CSSProperties = {
@@ -371,7 +441,7 @@ export default function StickerCard({
           {badgeEl}
           {nameEl}
           {infoList}
-          {idEl}
+          {footEl}
         </div>
       </div>
     )
@@ -382,7 +452,7 @@ export default function StickerCard({
       {badgeEl}
       {qrRowEl}
       {nameEl}
-      {idEl}
+      {footEl}
     </div>
   )
 }

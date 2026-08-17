@@ -2,7 +2,9 @@
 import { useRef, useState } from 'react'
 import { Category } from '@/types'
 import { LABEL_SHEETS, DEFAULT_SHEET, perSheet } from '@/lib/labelSheets'
+import { LABEL_THEMES, LabelThemeId, DEFAULT_THEME } from '@/lib/labelTheme'
 import StickerCard from './StickerCard'
+import HaugeMaskinLogo from './HaugeMaskinLogo'
 
 interface Props {
   categories: Category[]
@@ -15,6 +17,7 @@ export default function PrintAllModal({ categories, onClose }: Props) {
   const printRef = useRef<HTMLDivElement>(null)
 
   const [sheetId,   setSheetId]   = useState(DEFAULT_SHEET.id)
+  const [themeId,   setThemeId]   = useState<LabelThemeId>(DEFAULT_THEME.id)
   const [offsetX,   setOffsetX]   = useState(0)
   const [offsetY,   setOffsetY]   = useState(0)
   const [showBadge, setShowBadge] = useState(true)
@@ -115,7 +118,7 @@ export default function PrintAllModal({ categories, onClose }: Props) {
               }}>
               <StickerCard category={cat} forPrint
                 widthMm={sheet.w} heightMm={sheet.h}
-                showBadge={showBadge} overrideColor={override} />
+                showBadge={showBadge} overrideColor={override} theme={themeId} />
             </div>
           ))}
         </div>
@@ -194,6 +197,33 @@ export default function PrintAllModal({ categories, onClose }: Props) {
             )}
           </div>
 
+          {/* Tema */}
+          <div>
+            {sectionLabel('TEMA')}
+            <div className="flex gap-2">
+              {LABEL_THEMES.map(t => {
+                const on = themeId === t.id
+                return (
+                  <button key={t.id} onClick={() => setThemeId(t.id)}
+                    className="flex-1 rounded-xl px-3 py-2.5 text-sm transition-all"
+                    style={{
+                      backgroundColor: on ? 'var(--black)' : 'var(--gray-100)',
+                      color: on ? 'var(--white)' : 'var(--ink)',
+                      fontWeight: on ? 600 : 500,
+                    }}>
+                    <span className="flex items-center justify-center gap-2">
+                      {t.logo && <HaugeMaskinLogo height="13px" />}
+                      {t.name}
+                    </span>
+                    <span style={{ display: 'block', fontSize: '0.7rem', opacity: 0.65, fontWeight: 400 }}>
+                      {t.hint}
+                    </span>
+                  </button>
+                )
+              })}
+            </div>
+          </div>
+
           {/* Arktype */}
           <div>
             {sectionLabel('ETIKETTARK')}
@@ -252,7 +282,11 @@ export default function PrintAllModal({ categories, onClose }: Props) {
               <div>
                 <p style={{ fontSize: '0.85rem', fontWeight: 500, color: 'var(--ink)' }}>Felles farge</p>
                 <p style={{ fontSize: '0.75rem', color: 'var(--muted)' }}>
-                  {useColor ? 'Overstyrer fargen på hver QR-kode' : 'Hver QR-kode beholder sin egen farge'}
+                  {useColor
+                    ? 'Overstyrer fargen på hver QR-kode'
+                    : themeId === 'hauge'
+                    ? 'Temaet bruker Hauge Maskin-rødt'
+                    : 'Hver QR-kode beholder sin egen farge'}
                 </p>
               </div>
               {toggle(useColor, () => setUseColor(v => !v))}

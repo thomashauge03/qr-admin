@@ -1,7 +1,9 @@
 'use client'
 import { useRef, useState } from 'react'
 import { Category } from '@/types'
+import { LABEL_THEMES, LabelThemeId, DEFAULT_THEME } from '@/lib/labelTheme'
 import StickerCard from './StickerCard'
+import HaugeMaskinLogo from './HaugeMaskinLogo'
 
 interface Props {
   category: Category
@@ -13,6 +15,7 @@ type Layout = 'sticker' | 'full'
 export default function PrintModal({ category, onClose }: Props) {
   const printRef = useRef<HTMLDivElement>(null)
   const [layout, setLayout] = useState<Layout>('sticker')
+  const [themeId, setThemeId] = useState<LabelThemeId>(DEFAULT_THEME.id)
   const fullPage = layout === 'full'
   const hasInfo = (category.info_lines || []).length > 0
 
@@ -84,6 +87,26 @@ export default function PrintModal({ category, onClose }: Props) {
           ))}
         </div>
 
+        {/* Tema */}
+        <div className="flex gap-2 px-6 pt-2">
+          {LABEL_THEMES.map(t => (
+            <button
+              key={t.id}
+              onClick={() => setThemeId(t.id)}
+              className="flex-1 rounded-xl py-2.5 text-sm transition-all"
+              style={{
+                backgroundColor: themeId === t.id ? 'var(--black)' : 'var(--gray-100)',
+                color: themeId === t.id ? 'var(--white)' : 'var(--ink)',
+                fontWeight: themeId === t.id ? 600 : 500,
+              }}>
+              <span className="flex items-center justify-center gap-2">
+                {t.logo && <HaugeMaskinLogo height="13px" />}
+                {t.name}
+              </span>
+            </button>
+          ))}
+        </div>
+
         {/* Preview */}
         <div className="flex justify-center px-6 py-6">
           {fullPage ? (
@@ -91,13 +114,13 @@ export default function PrintModal({ category, onClose }: Props) {
             <div style={{ width: 718 * 0.32, height: 1047 * 0.32, overflow: 'hidden' }}>
               <div style={{ transform: 'scale(0.32)', transformOrigin: 'top left', width: 718 }}>
                 <div ref={printRef}>
-                  <StickerCard category={category} fullPage />
+                  <StickerCard category={category} fullPage theme={themeId} />
                 </div>
               </div>
             </div>
           ) : (
             <div ref={printRef}>
-              <StickerCard category={category} size={200} forPrint />
+              <StickerCard category={category} size={200} forPrint theme={themeId} />
             </div>
           )}
         </div>
