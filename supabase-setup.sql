@@ -32,7 +32,11 @@ CREATE TABLE IF NOT EXISTS folders (
   created_at TIMESTAMPTZ DEFAULT NOW()
 );
 ALTER TABLE folders ENABLE ROW LEVEL SECURITY;
-CREATE POLICY "Allow all for authenticated" ON folders FOR ALL USING (true) WITH CHECK (true);
+-- Alle kan lese (QR-visning), bare innloggede kan endre
+CREATE POLICY "folders_lese_offentleg" ON folders FOR SELECT USING (true);
+CREATE POLICY "folders_skrive_innlogga" ON folders FOR INSERT TO authenticated WITH CHECK (true);
+CREATE POLICY "folders_endre_innlogga" ON folders FOR UPDATE TO authenticated USING (true) WITH CHECK (true);
+CREATE POLICY "folders_slette_innlogga" ON folders FOR DELETE TO authenticated USING (true);
 
 -- Koble kategorier til mapper
 ALTER TABLE categories ADD COLUMN IF NOT EXISTS folder_id UUID REFERENCES folders(id) ON DELETE SET NULL;
@@ -42,13 +46,20 @@ CREATE INDEX IF NOT EXISTS idx_categories_name         ON categories (name);
 CREATE INDEX IF NOT EXISTS idx_categories_shelf_number ON categories (shelf_number);
 CREATE INDEX IF NOT EXISTS idx_categories_created_at   ON categories (created_at DESC);
 
--- Row Level Security (RLS) — siden dette er en personlig app
--- kan du enten skru av RLS, eller bruke service role key
+-- Row Level Security (RLS)
+-- Anon-nøkkelen ligger i nettleseren og er offentlig kjent. Derfor:
+-- alle kan LESE katalogen (det QR-kodene viser), men bare innloggede
+-- kan legge til, endre eller slette.
 ALTER TABLE categories ENABLE ROW LEVEL SECURITY;
 
--- Policy: Tillat alt (tilpass om du legger til auth)
-CREATE POLICY "Allow all operations" ON categories
-  FOR ALL USING (true) WITH CHECK (true);
+CREATE POLICY "categories_lese_offentleg" ON categories
+  FOR SELECT USING (true);
+CREATE POLICY "categories_skrive_innlogga" ON categories
+  FOR INSERT TO authenticated WITH CHECK (true);
+CREATE POLICY "categories_endre_innlogga" ON categories
+  FOR UPDATE TO authenticated USING (true) WITH CHECK (true);
+CREATE POLICY "categories_slette_innlogga" ON categories
+  FOR DELETE TO authenticated USING (true);
 
 -- Test-data (valgfritt — slett om du ikke vil ha det)
 INSERT INTO categories (name, shelf_number, description, color) VALUES
