@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from 'next'
 import './globals.css'
+import { Lukkar } from '@/components/Lukkar'
 
 export const metadata: Metadata = {
   title: 'QR Admin — Butikkstyring',
@@ -28,7 +29,11 @@ export const viewport: Viewport = {
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="no">
-      <body>{children}</body>
+      <body>
+        {/* Først i body, så platene er malt før noe annet rekker å vises. */}
+        <Lukkar />
+        {children}
+      </body>
     </html>
   )
 }
