@@ -42,7 +42,7 @@
    pointer-events none; åpner senest etter 2,6 sekund uansett; fjerner
    seg selv; respekterer prefers-reduced-motion.
 
-   Kanonisk kopi: hauge-maskin-mobil/twa/lukkar.html
+   Kanonisk kopi: hauge-maskin-mobil/twa/hm-snutt.html
    ══════════════════════════════════════════════════════════════════ */
 
 const CSS = `

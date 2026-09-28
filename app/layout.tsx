@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from 'next'
 import './globals.css'
 import { Lukkar } from '@/components/Lukkar'
+import { Nokkelknapp } from '@/components/Nokkelknapp'
 
 export const metadata: Metadata = {
   title: 'QR Admin — Butikkstyring',
@@ -32,6 +33,8 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       <body>
         {/* Først i body, så platene er malt før noe annet rekker å vises. */}
         <Lukkar />
+        {/* Rett etter lukkeren: nøkkelknappen må ligge i HTML-en serveren sender. */}
+        <Nokkelknapp />
         {children}
       </body>
     </html>
