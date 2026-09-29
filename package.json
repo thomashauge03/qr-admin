@@ -7,6 +7,7 @@
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
+    "test": "node --no-warnings --test \"lib/**/*.test.ts\"",
     "build:mobile": "next build && npx cap sync",
     "open:android": "npx cap open android",
     "open:ios": "npx cap open ios",

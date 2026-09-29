@@ -2,9 +2,10 @@
 import { useRef, useState } from 'react'
 import { Category } from '@/types'
 import { LABEL_SHEETS, DEFAULT_SHEET, perSheet } from '@/lib/labelSheets'
-import { LABEL_THEMES, LabelThemeId, DEFAULT_THEME } from '@/lib/labelTheme'
+import { getTheme, lesUtskriftValg, lagreUtskriftValg, nettleserLager, type UtskriftValg } from '@/lib/labelTheme'
+import { ETIKETT_FONTER, skrivUtNårKlar } from '@/lib/utskrift'
 import StickerCard from './StickerCard'
-import HaugeMaskinLogo from './HaugeMaskinLogo'
+import DesignVelger from './DesignVelger'
 
 interface Props {
   categories: Category[]
@@ -13,11 +14,18 @@ interface Props {
 
 const COLORS = ['#000000', '#ef4444', '#f97316', '#eab308', '#22c55e', '#3b82f6', '#8b5cf6', '#ec4899']
 
+// Til miniatyrene i designvelgeren når lista er tom
+const EKSEMPEL: Category = {
+  id: '00000000', name: 'Eksempel', shelf_number: 'A1', description: null, color: null,
+  qr_type: null, qr_data: null, info_lines: null, folder_id: null, created_at: '',
+}
+
 export default function PrintAllModal({ categories, onClose }: Props) {
   const printRef = useRef<HTMLDivElement>(null)
 
   const [sheetId,   setSheetId]   = useState(DEFAULT_SHEET.id)
-  const [themeId,   setThemeId]   = useState<LabelThemeId>(DEFAULT_THEME.id)
+  // Designet og logoen man valgte sist
+  const [valg,      setValg]      = useState<UtskriftValg>(() => lesUtskriftValg(nettleserLager()))
   const [offsetX,   setOffsetX]   = useState(0)
   const [offsetY,   setOffsetY]   = useState(0)
   const [showBadge, setShowBadge] = useState(true)
@@ -33,6 +41,12 @@ export default function PrintAllModal({ categories, onClose }: Props) {
 
   const chosen = categories.filter(c => selected.has(c.id))
   const pageCount = Math.ceil(chosen.length / per)
+
+  const endreValg = (neste: Partial<UtskriftValg>) => {
+    const nytt = { ...valg, ...neste }
+    setValg(nytt)
+    lagreUtskriftValg(nytt, nettleserLager())
+  }
 
   const toggleOne = (id: string) =>
     setSelected(prev => {
@@ -55,7 +69,7 @@ export default function PrintAllModal({ categories, onClose }: Props) {
       <html>
         <head>
           <title>Etiketter — QR Admin</title>
-          <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+          <link href="${ETIKETT_FONTER}" rel="stylesheet">
           <style>
             /* Uten print-color-adjust dropper skriveren bakgrunnsfargene, og da
                kommer nummer-badgen ut som grå tekst på hvitt i stedet for rød */
@@ -81,12 +95,8 @@ export default function PrintAllModal({ categories, onClose }: Props) {
     `)
     printWindow.document.close()
     printWindow.focus()
-    // Vent på at logoene er dekodet før print-dialogen åpnes
-    Promise.all([
-      new Promise(r => setTimeout(r, 700)),
-      ...Array.from(printWindow.document.images).map(img =>
-        img.complete ? null : new Promise(r => { img.onload = img.onerror = r })),
-    ]).then(() => { printWindow.print(); printWindow.close() })
+    // Vent på fontene og logoene før print-dialogen åpnes
+    skrivUtNårKlar(printWindow)
   }
 
   // A4 er 210mm ≈ 794px — skaleres ned i forhåndsvisningen
@@ -124,9 +134,10 @@ export default function PrintAllModal({ categories, onClose }: Props) {
                 left: `${sheet.marginLeft + (i % sheet.cols) * sheet.pitchX + offsetX}mm`,
                 top:  `${sheet.marginTop + Math.floor(i / sheet.cols) * sheet.pitchY + offsetY}mm`,
               }}>
-              <StickerCard category={cat} forPrint
+              <StickerCard category={cat}
                 widthMm={sheet.w} heightMm={sheet.h}
-                showBadge={showBadge} overrideColor={override} theme={themeId} />
+                showBadge={showBadge} overrideColor={override}
+                theme={valg.design} logo={valg.logo} />
             </div>
           ))}
         </div>
@@ -147,7 +158,9 @@ export default function PrintAllModal({ categories, onClose }: Props) {
           <button onClick={onClose} style={{ color: 'var(--muted)', fontSize: '1.25rem', lineHeight: 1 }}>✕</button>
         </div>
 
-        {/* Innstillinger */}
+        {/* Innstillinger og forhåndsvisning ruller sammen. Hver for seg ble
+            innstillingene høyere enn skjermen, og forhåndsvisningen klemt til ingenting. */}
+        <div className="overflow-y-auto" style={{ flex: 1, minHeight: 0 }}>
         <div className="px-8 pb-5 space-y-5" style={{ borderBottom: '1px solid var(--border)' }}>
 
           {/* Hvilke QR-koder som skal med */}
@@ -205,31 +218,17 @@ export default function PrintAllModal({ categories, onClose }: Props) {
             )}
           </div>
 
-          {/* Tema */}
+          {/* Design og logo */}
           <div>
-            {sectionLabel('TEMA')}
-            <div className="flex gap-2">
-              {LABEL_THEMES.map(t => {
-                const on = themeId === t.id
-                return (
-                  <button key={t.id} onClick={() => setThemeId(t.id)}
-                    className="flex-1 rounded-xl px-3 py-2.5 text-sm transition-all"
-                    style={{
-                      backgroundColor: on ? 'var(--black)' : 'var(--gray-100)',
-                      color: on ? 'var(--white)' : 'var(--ink)',
-                      fontWeight: on ? 600 : 500,
-                    }}>
-                    <span className="flex items-center justify-center gap-2">
-                      {t.logo && <HaugeMaskinLogo height="13px" />}
-                      {t.name}
-                    </span>
-                    <span style={{ display: 'block', fontSize: '0.7rem', opacity: 0.65, fontWeight: 400 }}>
-                      {t.hint}
-                    </span>
-                  </button>
-                )
-              })}
-            </div>
+            {sectionLabel('DESIGN')}
+            <DesignVelger
+              category={chosen[0] ?? categories[0] ?? EKSEMPEL}
+              themeId={valg.design}
+              onTheme={id => endreValg({ design: id })}
+              logo={valg.logo}
+              onLogo={on => endreValg({ logo: on })}
+              overrideColor={override}
+            />
           </div>
 
           {/* Arktype */}
@@ -292,8 +291,8 @@ export default function PrintAllModal({ categories, onClose }: Props) {
                 <p style={{ fontSize: '0.75rem', color: 'var(--muted)' }}>
                   {useColor
                     ? 'Overstyrer fargen på hver QR-kode'
-                    : themeId === 'hauge'
-                    ? 'Temaet bruker Hauge Maskin-rødt'
+                    : getTheme(valg.design).accent
+                    ? 'Designet har faste farger'
                     : 'Hver QR-kode beholder sin egen farge'}
                 </p>
               </div>
@@ -318,7 +317,7 @@ export default function PrintAllModal({ categories, onClose }: Props) {
         </div>
 
         {/* Forhåndsvisning — nedskalert, men markupen som printes er i full størrelse */}
-        <div className="overflow-y-auto px-8 py-5 flex-1" style={{ backgroundColor: 'var(--gray-100)' }}>
+        <div className="px-8 py-5" style={{ backgroundColor: 'var(--gray-100)' }}>
           <div style={{ width: A4_W * scale, height: (A4_H * pages.length + 16 * (pages.length - 1)) * scale,
             overflow: 'hidden', margin: '0 auto' }}>
             <div style={{ transform: `scale(${scale})`, transformOrigin: 'top left', width: A4_W }}>
@@ -327,6 +326,7 @@ export default function PrintAllModal({ categories, onClose }: Props) {
               </div>
             </div>
           </div>
+        </div>
         </div>
 
         <div className="p-8 pt-4 flex gap-3" style={{ borderTop: '1px solid var(--border)' }}>

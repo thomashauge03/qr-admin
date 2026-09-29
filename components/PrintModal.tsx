@@ -1,9 +1,10 @@
 'use client'
 import { useRef, useState } from 'react'
 import { Category } from '@/types'
-import { LABEL_THEMES, LabelThemeId, DEFAULT_THEME } from '@/lib/labelTheme'
+import { lesUtskriftValg, lagreUtskriftValg, nettleserLager, type UtskriftValg } from '@/lib/labelTheme'
+import { ETIKETT_FONTER, skrivUtNårKlar } from '@/lib/utskrift'
 import StickerCard from './StickerCard'
-import HaugeMaskinLogo from './HaugeMaskinLogo'
+import DesignVelger from './DesignVelger'
 
 interface Props {
   category: Category
@@ -15,9 +16,16 @@ type Layout = 'sticker' | 'full'
 export default function PrintModal({ category, onClose }: Props) {
   const printRef = useRef<HTMLDivElement>(null)
   const [layout, setLayout] = useState<Layout>('sticker')
-  const [themeId, setThemeId] = useState<LabelThemeId>(DEFAULT_THEME.id)
+  // Designet og logoen man valgte sist
+  const [valg, setValg] = useState<UtskriftValg>(() => lesUtskriftValg(nettleserLager()))
   const fullPage = layout === 'full'
   const hasInfo = (category.info_lines || []).length > 0
+
+  const endreValg = (neste: Partial<UtskriftValg>) => {
+    const nytt = { ...valg, ...neste }
+    setValg(nytt)
+    lagreUtskriftValg(nytt, nettleserLager())
+  }
 
   const handlePrint = () => {
     const content = printRef.current
@@ -27,7 +35,7 @@ export default function PrintModal({ category, onClose }: Props) {
     win.document.write(`
       <html><head>
         <title>${fullPage ? 'A4' : 'Sticker'} — ${category.name}</title>
-        <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+        <link href="${ETIKETT_FONTER}" rel="stylesheet">
         <style>
           /* print-color-adjust: ellers dropper skriveren bakgrunnsfargene, og
              nummer-badgen kommer ut som grå tekst på hvitt i stedet for rød */
@@ -40,19 +48,17 @@ export default function PrintModal({ category, onClose }: Props) {
     `)
     win.document.close()
     win.focus()
-    // Vent på at logoen er dekodet før print-dialogen åpnes
-    Promise.all([
-      new Promise(r => setTimeout(r, 700)),
-      ...Array.from(win.document.images).map(img =>
-        img.complete ? null : new Promise(r => { img.onload = img.onerror = r })),
-    ]).then(() => { win.print(); win.close() })
+    // Vent på fontene og logoen før print-dialogen åpnes
+    skrivUtNårKlar(win)
   }
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 anim-fade-in"
       style={{ backgroundColor: 'rgba(0,0,0,0.5)' }}>
-      <div className="anim-scale-in w-full max-w-sm rounded-2xl shadow-xl overflow-hidden"
-        style={{ backgroundColor: 'var(--surface)', border: '1px solid var(--border)' }}>
+      {/* Rulles på lave skjermer — designvelgeren og forhåndsvisningen er
+          til sammen høyere enn en telefon */}
+      <div className="anim-scale-in w-full max-w-sm rounded-2xl shadow-xl overflow-y-auto"
+        style={{ backgroundColor: 'var(--surface)', border: '1px solid var(--border)', maxHeight: '90vh' }}>
 
         {/* Header */}
         <div className="flex items-center justify-between px-6 py-5"
@@ -95,24 +101,15 @@ export default function PrintModal({ category, onClose }: Props) {
           ))}
         </div>
 
-        {/* Tema */}
-        <div className="flex gap-2 px-6 pt-2">
-          {LABEL_THEMES.map(t => (
-            <button
-              key={t.id}
-              onClick={() => setThemeId(t.id)}
-              className="flex-1 rounded-xl py-2.5 text-sm transition-all"
-              style={{
-                backgroundColor: themeId === t.id ? 'var(--black)' : 'var(--gray-100)',
-                color: themeId === t.id ? 'var(--white)' : 'var(--ink)',
-                fontWeight: themeId === t.id ? 600 : 500,
-              }}>
-              <span className="flex items-center justify-center gap-2">
-                {t.logo && <HaugeMaskinLogo height="13px" />}
-                {t.name}
-              </span>
-            </button>
-          ))}
+        {/* Design og logo */}
+        <div className="px-6 pt-4">
+          <DesignVelger
+            category={category}
+            themeId={valg.design}
+            onTheme={id => endreValg({ design: id })}
+            logo={valg.logo}
+            onLogo={on => endreValg({ logo: on })}
+          />
         </div>
 
         {/* Preview */}
@@ -122,13 +119,13 @@ export default function PrintModal({ category, onClose }: Props) {
             <div style={{ width: 718 * 0.32, height: 1047 * 0.32, overflow: 'hidden' }}>
               <div style={{ transform: 'scale(0.32)', transformOrigin: 'top left', width: 718 }}>
                 <div ref={printRef}>
-                  <StickerCard category={category} fullPage theme={themeId} />
+                  <StickerCard category={category} fullPage theme={valg.design} logo={valg.logo} />
                 </div>
               </div>
             </div>
           ) : (
             <div ref={printRef}>
-              <StickerCard category={category} size={200} forPrint theme={themeId} />
+              <StickerCard category={category} theme={valg.design} logo={valg.logo} />
             </div>
           )}
         </div>
