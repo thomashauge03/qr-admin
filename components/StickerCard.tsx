@@ -5,7 +5,7 @@ import { QRCodeSVG } from 'qrcode.react'
 import { Category, buildQRValue } from '@/types'
 import { LabelThemeId, getTheme, tekstPå, SVART, HVIT } from '@/lib/labelTheme'
 import {
-  planEtikett, blokkRekkefolge, INGEN_KANT, MIN_RUTE_MM, QR_RUTER,
+  planEtikett, blokkRekkefolge, velgNivå, INGEN_KANT, MIN_RUTE_MM, QR_RUTER,
   type BlokkType, type EtikettPlan, type Sider,
 } from '@/lib/etikettPlan'
 import HaugeMaskinLogo, { LOGO_RATIO } from './HaugeMaskinLogo'
@@ -65,6 +65,11 @@ const MIN_MERKE = 1.1
 const MIN_INFO_ETIKETT = 1.1
 const MIN_INFO_VERDI = 1.4
 const MIN_BESKRIVELSE = 1.2
+// Nummeret er det viktigste på etiketten: blir det mindre enn dette fordi det
+// deler feltet med «UTSTYR NR», er det teksten som viker
+const MIN_NUMMER = 1.4
+// Navnet under det store nummeret på Fargebjelke
+const MIN_UNDERTEKST = 1.3
 
 // ── Tekstmåling ──────────────────────────────────────────────────────────
 // Et snitt-tegnbredde-anslag bommer med opptil 30 % mellom «Vibroplate» (0,48)
@@ -398,7 +403,7 @@ export default function StickerCard({
     const [mL, mN] = v === 'rule' ? [0.3, 0.62] : [0.34, theme.type === 'heavy' ? 0.52 : 0.5]
     // De frie formatene har faste størrelser og krympes bare når de ikke får plass
     const r = isLabel ? passRad(boxH * mL, boxH * mN, true) : passRad(F.label / PT, F.shelf / PT, false)
-    if (!lesbar(r.label)) {
+    if (!lesbar(r.label) || (isLabel && r.shelf < MIN_NUMMER)) {
       return { label: 0, shelf: Math.min(boxH * 0.6, (romW * 0.94) / Math.max(0.05, wNr)), d: 0, visLabel: false }
     }
     return { ...r, d: 0, visLabel: true }
@@ -410,8 +415,11 @@ export default function StickerCard({
     if (!hero) return { nr: 0, sub: 0, lines: 2 }
     const nrMm = fitMm(isLabel ? nameH * 0.62 : F.hero / PT, textW * 0.98, nr.toUpperCase(), 900, -0.03)
     if (!isLabel) return { nr: nrMm, sub: F.heroSub / PT, lines: 2 }
-    const sub = fitBlock(Math.max(0, nameH - nrMm * 0.92 - heroGap), textW, category.name.toUpperCase(), 2, 700, 0.06, 1.2)
-    return { nr: nrMm, sub: Math.min(sub.mm, nrMm * 0.42), lines: sub.lines }
+    // Inntil tre linjer: et langt navn på en liten etikett ville ellers krympet
+    // til 1 mm for å stå på to. Undertekst holdes mindre enn nummeret, men
+    // aldri så liten at den ikke kan leses.
+    const sub = fitBlock(Math.max(0, nameH - nrMm * 0.92 - heroGap), textW, category.name.toUpperCase(), 3, 700, 0.06, 1.2)
+    return { nr: nrMm, sub: Math.min(sub.mm, Math.max(nrMm * 0.42, MIN_UNDERTEKST)), lines: sub.lines }
   })()
 
   // ── Navn og beskrivelse ──────────────────────────────────────────────────
@@ -521,8 +529,14 @@ export default function StickerCard({
   // om rutene tåler pynten; i de frie formatene er koden stor nok uansett.
   const qrInnslagFri = theme.qrMarks ? qrW * 0.1 : theme.qrFrame ? klem(qrW * 0.025, 0.4, 1.5) : 0
   const qrPyntFri = qrInnslagFri > 0 && (qrW - 2 * qrInnslagFri) / QR_RUTER >= MIN_RUTE_MM
-  const qrMerker = plan ? plan.qrMerker : qrPyntFri && !!theme.qrMarks
-  const qrRamme = plan ? plan.qrRamme : qrPyntFri && theme.qrFrame ? qrInnslagFri : 0
+  const planlagtSvg = plan ? plan.qrSvg : qrPyntFri ? qrW - 2 * qrInnslagFri : qrW
+  // Planen regner med en vanlig kode på 41 ruter. Et langt navn kan gi flere;
+  // da ryker pynten rundt koden før rutene blir for små.
+  const pyntTåles = velgNivå(qrValue, planlagtSvg).ruteMm >= MIN_RUTE_MM
+  const qrMerker = pyntTåles && (plan ? plan.qrMerker : qrPyntFri && !!theme.qrMarks)
+  const qrRamme = pyntTåles ? (plan ? plan.qrRamme : qrPyntFri && theme.qrFrame ? qrInnslagFri : 0) : 0
+  const qrSvgMm = qrMerker || qrRamme ? planlagtSvg : qrW
+  const qrNivå = velgNivå(qrValue, qrSvgMm).nivå
 
   const hjørne = theme.corners === 'square' ? 0
     : isPage ? (theme.frame === 'thick' ? 11 : 8)
@@ -715,7 +729,7 @@ export default function StickerCard({
         size={1024}
         bgColor={HVIT}
         fgColor={SVART}
-        level="M"
+        level={qrNivå}
         marginSize={4}
         style={{ width: '100%', height: 'auto', display: 'block' }}
       />

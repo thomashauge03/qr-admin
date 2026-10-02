@@ -43,6 +43,39 @@ export const QR_RUTER = 41 + 2 * 4
 /** Minste rute som skannes sikkert med mobilkamera på kort hold */
 export const MIN_RUTE_MM = 0.3
 
+// Hvor mange byte hver QR-versjon (1–40) rommer i byte-modus, per
+// feilrettingsnivå — tabell 7 i ISO/IEC 18004. JSON, adresser og telefonnummer
+// med «tel:» kodes alltid i byte-modus.
+const KAPASITET = {
+  L: [17, 32, 53, 78, 106, 134, 154, 192, 230, 271, 321, 367, 425, 458, 520, 586, 644, 718, 792, 858,
+    929, 1003, 1091, 1171, 1273, 1367, 1465, 1528, 1628, 1732, 1840, 1952, 2068, 2188, 2303, 2431, 2563, 2699, 2809, 2953],
+  M: [14, 26, 42, 62, 84, 106, 122, 152, 180, 213, 251, 287, 331, 362, 412, 450, 504, 560, 624, 666,
+    711, 779, 857, 911, 997, 1059, 1125, 1190, 1264, 1370, 1452, 1538, 1628, 1722, 1809, 1911, 1989, 2099, 2213, 2331],
+}
+
+export type QrNivå = 'L' | 'M'
+
+/** Ruter langs én side av koden, med stillesonen på 4 ruter hver vei */
+export function qrRuter(innhold: string, nivå: QrNivå): number {
+  const byte = new TextEncoder().encode(innhold).length
+  const i = KAPASITET[nivå].findIndex(k => k >= byte)
+  const versjon = i < 0 ? 40 : i + 1
+  return 17 + 4 * versjon + 8
+}
+
+/**
+ * Feilrettingsnivået koden skal ha. M tåler at 15 % av koden er skitten eller
+ * ripete, og er standarden. Et langt navn i koden gir en større versjon og
+ * mindre ruter; blir rutene da under 0,3 mm, går vi ned til L. På så små koder
+ * er rutestørrelsen det som avgjør om den lar seg lese.
+ */
+export function velgNivå(innhold: string, svgMm: number): { nivå: QrNivå; ruter: number; ruteMm: number } {
+  const m = qrRuter(innhold, 'M')
+  if (svgMm / m >= MIN_RUTE_MM) return { nivå: 'M', ruter: m, ruteMm: svgMm / m }
+  const l = qrRuter(innhold, 'L')
+  return { nivå: 'L', ruter: l, ruteMm: svgMm / l }
+}
+
 export interface EtikettPlan {
   landscape: boolean
   /** Luft mellom rammen og innholdet, per side */

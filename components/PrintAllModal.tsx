@@ -1,12 +1,12 @@
 'use client'
 import { useRef, useState } from 'react'
-import { Category } from '@/types'
+import { Category, buildQRValue } from '@/types'
 import {
   LABEL_SHEETS, DEFAULT_SHEET, SKRIVERKANT, perSheet, kantVern,
   lagEgetArk, lesEgetArk, lagreEgetArk, type EgetArkMål,
 } from '@/lib/labelSheets'
 import { getTheme, lesUtskriftValg, lagreUtskriftValg, nettleserLager, type UtskriftValg } from '@/lib/labelTheme'
-import { planEtikett, QR_RUTER, MIN_RUTE_MM } from '@/lib/etikettPlan'
+import { planEtikett, velgNivå, MIN_RUTE_MM } from '@/lib/etikettPlan'
 import { ETIKETT_FONTER, skrivUtNårKlar } from '@/lib/utskrift'
 import StickerCard from './StickerCard'
 import DesignVelger from './DesignVelger'
@@ -75,11 +75,13 @@ export default function PrintAllModal({ categories, onClose }: Props) {
   const kantSone = Array.from({ length: per }, (_, i) => kantVern(sheet, i, offsetX, offsetY))
     .some(k => k.t > 0 || k.r > 0 || k.b > 0 || k.l > 0)
   // Blir QR-rutene for små på dette arket med dette designet, sies det fra her
-  // og ikke først når skanneren ikke leser koden
+  // og ikke først når skanneren ikke leser koden. Det lengste innholdet gir
+  // flest og minst ruter, så det er det som avgjør.
   const prøve = planEtikett({
     w: sheet.w, h: sheet.h, theme: getTheme(valg.design), logo: valg.logo, showBadge, hasInfo: false,
   })
-  const qrRute = prøve.qrSvg / QR_RUTER
+  const lengst = chosen.map(buildQRValue).reduce((a, b) => (new TextEncoder().encode(b).length > new TextEncoder().encode(a).length ? b : a), '')
+  const qrRute = velgNivå(lengst || buildQRValue(EKSEMPEL), prøve.qrSide).ruteMm
   const forLitenQr = qrRute < MIN_RUTE_MM
 
   const endreEget = (k: keyof EgetArkMål, verdi: number) => {

@@ -1,6 +1,6 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { planEtikett, QR_RUTER, MIN_RUTE_MM, type EtikettPlan } from './etikettPlan.ts'
+import { planEtikett, qrRuter, velgNivå, QR_RUTER, MIN_RUTE_MM, type EtikettPlan } from './etikettPlan.ts'
 import { LABEL_THEMES } from './labelTheme.ts'
 import { LABEL_SHEETS, kantVern } from './labelSheets.ts'
 
@@ -137,6 +137,43 @@ test('«Nummer nederst» har nummerfeltet under navnet', () => {
   const typer = p.blokker.map(b => b.type)
   assert.ok(typer.indexOf('badge') > typer.indexOf('name'), typer.join(','))
   assert.ok(typer.indexOf('qr') < typer.indexOf('name'), typer.join(','))
+})
+
+const json = (navn: string, shelf = 'A2') =>
+  JSON.stringify({ id: '3f9a1c22-0000-4000-8000-000000000001', name: navn, shelf })
+// Verste tilfelle fra kontrollen av alle formater: 125 byte, versjon 8 på nivå M
+const LANGT = json('Hydraulisk pigghammer for minigraver 1,5–3 tonn', 'HM-10423-B')
+
+test('QR: antall ruter med stillesone følger versjonen innholdet krever', () => {
+  // 14 byte er versjon 1 på nivå M: 21 ruter + 2 × 4 stillesone
+  assert.equal(qrRuter('a'.repeat(14), 'M'), 29)
+  assert.equal(qrRuter('a'.repeat(15), 'M'), 33)
+  // Et vanlig navn i JSON: versjon 5 (37 ruter)
+  assert.equal(qrRuter(json('Volvo dumpere'), 'M'), 45)
+})
+
+test('QR: æ, ø og å teller to byte hver', () => {
+  assert.equal(qrRuter('æ'.repeat(7), 'M'), 29)
+  assert.equal(qrRuter('æ'.repeat(8), 'M'), 33)
+})
+
+test('QR: lavere feilretting gir færre og større ruter for langt innhold', () => {
+  assert.equal(qrRuter(LANGT, 'M'), 57)
+  assert.equal(qrRuter(LANGT, 'L'), 49)
+})
+
+test('QR: nivå M beholdes når rutene blir store nok, ellers L', () => {
+  // 17 mm: M gir 0,298 mm per rute, L gir 0,347
+  const smal = velgNivå(LANGT, 17)
+  assert.equal(smal.nivå, 'L')
+  assert.ok(smal.ruteMm >= MIN_RUTE_MM)
+  assert.equal(velgNivå(LANGT, 30).nivå, 'M')
+  // Kort innhold på liten kode: M holder
+  assert.equal(velgNivå(json('Volvo dumpere'), 15).nivå, 'M')
+})
+
+test('QR: innhold som ikke får plass i noen versjon gir største versjon', () => {
+  assert.equal(qrRuter('x'.repeat(5000), 'M'), 177 + 8)
 })
 
 test('design med bunnbånd har alltid en bunnrad, også uten logo og ID', () => {
