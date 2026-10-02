@@ -7,7 +7,7 @@ import {
 } from '@/lib/labelSheets'
 import { getTheme, lesUtskriftValg, lagreUtskriftValg, nettleserLager, type UtskriftValg } from '@/lib/labelTheme'
 import { planEtikett, velgNivå, MIN_RUTE_MM } from '@/lib/etikettPlan'
-import { ETIKETT_FONTER, skrivUtNårKlar } from '@/lib/utskrift'
+import { arkDokument, skrivUtNårKlar } from '@/lib/utskrift'
 import StickerCard from './StickerCard'
 import DesignVelger from './DesignVelger'
 
@@ -72,16 +72,17 @@ export default function PrintAllModal({ categories, onClose }: Props) {
   const kanPrinte = chosen.length > 0 && !egetFeil
 
   // Etiketter som ligger mot arkkanten får ekstra luft der skriveren ikke når
-  const kantSone = Array.from({ length: per }, (_, i) => kantVern(sheet, i, offsetX, offsetY))
-    .some(k => k.t > 0 || k.r > 0 || k.b > 0 || k.l > 0)
+  const kanter = Array.from({ length: per }, (_, i) => kantVern(sheet, i, offsetX, offsetY))
+  const kantSone = kanter.some(k => k.t > 0 || k.r > 0 || k.b > 0 || k.l > 0)
   // Blir QR-rutene for små på dette arket med dette designet, sies det fra her
   // og ikke først når skanneren ikke leser koden. Det lengste innholdet gir
-  // flest og minst ruter, så det er det som avgjør.
-  const prøve = planEtikett({
-    w: sheet.w, h: sheet.h, theme: getTheme(valg.design), logo: valg.logo, showBadge, hasInfo: false,
-  })
+  // flest og minst ruter, og etiketten mot arkkanten den minste koden — så
+  // det er de som avgjør.
+  const minsteQr = Math.min(...kanter.map(kant => planEtikett({
+    w: sheet.w, h: sheet.h, theme: getTheme(valg.design), logo: valg.logo, showBadge, hasInfo: false, kant,
+  }).qrSide))
   const lengst = chosen.map(buildQRValue).reduce((a, b) => (new TextEncoder().encode(b).length > new TextEncoder().encode(a).length ? b : a), '')
-  const qrRute = velgNivå(lengst || buildQRValue(EKSEMPEL), prøve.qrSide).ruteMm
+  const qrRute = velgNivå(lengst || buildQRValue(EKSEMPEL), minsteQr).ruteMm
   const forLitenQr = qrRute < MIN_RUTE_MM
 
   const endreEget = (k: keyof EgetArkMål, verdi: number) => {
@@ -113,34 +114,7 @@ export default function PrintAllModal({ categories, onClose }: Props) {
     if (!content || !kanPrinte) return
     const printWindow = window.open('', '_blank')
     if (!printWindow) return
-    printWindow.document.write(`
-      <html>
-        <head>
-          <title>Etiketter — QR Admin</title>
-          <link href="${ETIKETT_FONTER}" rel="stylesheet">
-          <style>
-            /* Uten print-color-adjust dropper skriveren bakgrunnsfargene, og da
-               kommer nummer-badgen ut som grå tekst på hvitt i stedet for rød */
-            * { margin: 0; padding: 0; box-sizing: border-box;
-                -webkit-print-color-adjust: exact; print-color-adjust: exact; }
-            body { background: white; font-family: sans-serif; }
-            /* Etikettene plasseres absolutt, slik at de treffer cellene på arket */
-            .page {
-              position: relative;
-              width: 210mm;
-              height: 297mm;
-              page-break-after: always;
-              overflow: hidden;
-            }
-            .page:last-child { page-break-after: auto; }
-            .cell { position: absolute; }
-            .sticker-card { break-inside: avoid; page-break-inside: avoid; }
-            @page { size: A4 portrait; margin: 0; }
-          </style>
-        </head>
-        <body>${content.innerHTML}</body>
-      </html>
-    `)
+    printWindow.document.write(arkDokument(content.innerHTML))
     printWindow.document.close()
     printWindow.focus()
     // Vent på fontene og logoene før print-dialogen åpnes

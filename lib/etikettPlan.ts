@@ -213,7 +213,7 @@ export function planEtikett({ w, h, theme, logo, showBadge, hasInfo, kant = INGE
     : theme.badge === 'number' ? 1.2
     : theme.badge === 'stripes' ? 1.1
     : 1
-  const badgeH = showBadge ? innerH * (landscape ? 0.2 : 0.19) * badgeAndel : 0
+  let badgeH = showBadge ? innerH * (landscape ? 0.2 : 0.19) * badgeAndel : 0
   // Bunnraden rommer logo (til venstre) og ID (til høyre). Logoen trenger litt
   // mer høyde enn ID-teksten alene for å være lesbar på små etiketter.
   const footH = showFoot ? innerH * ((landscape ? 0.09 : 0.08) + (logoIn === 'foot' ? 0.05 : 0)) : 0
@@ -224,11 +224,17 @@ export function planEtikett({ w, h, theme, logo, showBadge, hasInfo, kant = INGE
   })
   const mellomrom = gap * (rekkefolge.length - 1)
 
+  // Den minste koden som skannes sikkert. QR-koden går foran teksten: der
+  // etiketten har plass til den, gir teksten fra seg plass før rutene blir for små.
+  const qrMin = QR_RUTER * MIN_RUTE_MM
+
   let qrSide: number, textW: number, nameH: number, infoH = 0
   if (landscape) {
     // Brede etiketter får QR-en ved siden av teksten i stedet for over den —
-    // ellers begrenser høyden QR-en til under halv størrelse.
-    qrSide = Math.max(0, Math.min(innerH, innerW * (theme.qrFocus ? 0.6 : 0.5)))
+    // ellers begrenser høyden QR-en til under halv størrelse. På de minste
+    // etikettene tar koden inntil 62 % av bredden for å holde rutene store nok.
+    const andel = theme.qrFocus ? 0.6 : 0.5
+    qrSide = Math.max(0, Math.min(innerH, Math.max(innerW * andel, Math.min(qrMin, innerW * 0.62))))
     textW = Math.max(1, innerW - qrSide - gap)
     const rest = Math.max(0, innerH - headH - badgeH - footH - mellomrom)
     nameH = hasInfo ? rest * 0.45 : rest
@@ -238,9 +244,24 @@ export function planEtikett({ w, h, theme, logo, showBadge, hasInfo, kant = INGE
       : theme.qrFocus ? 0.14
       : (showDesc ? 0.28 : 0.2) * (theme.badge === 'stack' && showBadge ? 0.75 : 1)
     nameH = innerH * nameAndel
-    const qrBudget = innerH - headH - badgeH - nameH - footH - mellomrom
-    // Med infoliste deler QR-en raden med lista
-    qrSide = Math.max(0, Math.min(qrBudget, hasInfo ? innerW * 0.42 : innerW))
+    // Med infoliste deler QR-en raden med lista — men blir ikke så smal at
+    // rutene blir for små. Er raden for smal til begge, får koden plassen
+    // først, og lista får det som blir igjen; blir den for trang til å leses,
+    // tar StickerCard den bort.
+    const qrBredde = !hasInfo ? innerW
+      : innerW * 0.42 >= qrMin ? innerW * 0.42
+      : innerW * 0.6 >= qrMin ? qrMin
+      : innerW
+    let qrBudget = innerH - headH - badgeH - nameH - footH - mellomrom
+    // For lite høyde igjen til koden: navnet og nummerfeltet gir fra seg inntil 30 %
+    const mangler = Math.min(qrBredde, qrMin) - qrBudget
+    if (mangler > 0 && nameH + badgeH > 0) {
+      const krymp = 1 - Math.min(mangler, (nameH + badgeH) * 0.3) / (nameH + badgeH)
+      nameH *= krymp
+      badgeH *= krymp
+      qrBudget = innerH - headH - badgeH - nameH - footH - mellomrom
+    }
+    qrSide = Math.max(0, Math.min(qrBudget, qrBredde))
     textW = innerW
   }
 

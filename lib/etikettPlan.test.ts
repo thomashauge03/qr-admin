@@ -124,6 +124,24 @@ test('egne formater: alt får plass på alle størrelser fra 25 × 15 mm til hel
           }
 })
 
+test('egne formater: QR-rutene blir minst 0,3 mm på vanlige etikettstørrelser, også i arkhjørnet', () => {
+  // Dymo, Brother, fraktetiketter og smale stående lapper — mål folk skriver inn under «Eget format»
+  const mål = [[40, 30], [50, 25], [57, 32], [62, 29], [89, 28], [89, 36], [70, 50], [100, 70], [102, 76],
+    [148, 105], [102, 152], [54, 101], [50, 80], [40, 70], [30, 60]]
+  const HJØRNE = { t: 4.5, r: 0, b: 0, l: 4.5 }
+  for (const [w, h] of mål)
+    for (const kant of [INGEN, HJØRNE])
+      for (const theme of LABEL_THEMES)
+        for (const logo of [true, false])
+          for (const hasInfo of [true, false]) {
+            const p = planEtikett({ w, h, theme, logo, showBadge: true, hasInfo, kant })
+            const navn = `${theme.id} ${w}×${h} kant=${kant.t} logo=${logo} info=${hasInfo}`
+            passer(navn, p)
+            const rute = p.qrSvg / QR_RUTER
+            assert.ok(rute >= MIN_RUTE_MM - EPS, `${navn}: ${rute.toFixed(3)} mm per rute`)
+          }
+})
+
 test('uten kant i sonen er planen den samme som før', () => {
   const t = LABEL_THEMES[0]
   const a = planEtikett({ w: 105, h: 74.25, theme: t, logo: true, showBadge: true, hasInfo: false })
@@ -186,7 +204,7 @@ test('hengelappen har plass til hullet øverst, uten å gå ut over innholdet', 
 })
 
 test('kraftig og varselramme er tykkere enn den vanlige rammen', () => {
-  for (const id of ['kraftig', 'varsel']) {
+  for (const id of ['kraftig', 'kraftigrod', 'varsel', 'varselsvart']) {
     const t = LABEL_THEMES.find(x => x.id === id)!
     const p = planEtikett({ w: 105, h: 74.25, theme: t, logo: true, showBadge: true, hasInfo: false })
     assert.ok(p.frame.t >= 1.5 && p.frame.l >= 1.5, `${id}: ${p.frame.t}`)

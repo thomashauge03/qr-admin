@@ -2,7 +2,7 @@
 import { useRef, useState } from 'react'
 import { Category } from '@/types'
 import { lesUtskriftValg, lagreUtskriftValg, nettleserLager, type UtskriftValg } from '@/lib/labelTheme'
-import { ETIKETT_FONTER, skrivUtNårKlar } from '@/lib/utskrift'
+import { enkeltDokument, skrivUtNårKlar } from '@/lib/utskrift'
 import StickerCard from './StickerCard'
 import DesignVelger from './DesignVelger'
 
@@ -32,20 +32,7 @@ export default function PrintModal({ category, onClose }: Props) {
     if (!content) return
     const win = window.open('', '_blank')
     if (!win) return
-    win.document.write(`
-      <html><head>
-        <title>${fullPage ? 'A4' : 'Sticker'} — ${category.name}</title>
-        <link href="${ETIKETT_FONTER}" rel="stylesheet">
-        <style>
-          /* print-color-adjust: ellers dropper skriveren bakgrunnsfargene, og
-             nummer-badgen kommer ut som grå tekst på hvitt i stedet for rød */
-          * { margin:0; padding:0; box-sizing:border-box;
-              -webkit-print-color-adjust: exact; print-color-adjust: exact; }
-          body { display:flex; align-items:center; justify-content:center; min-height:100vh; background:white; }
-          @page { size: A4 portrait; margin: ${fullPage ? '10mm' : '5mm'}; }
-        </style>
-      </head><body>${content.innerHTML}</body></html>
-    `)
+    win.document.write(enkeltDokument(`${fullPage ? 'A4' : 'Sticker'} — ${category.name}`, content.innerHTML, fullPage))
     win.document.close()
     win.focus()
     // Vent på fontene og logoen før print-dialogen åpnes

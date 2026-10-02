@@ -1,7 +1,7 @@
 'use client'
-import { useEffect, useRef } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Category } from '@/types'
-import { LABEL_THEMES, LabelThemeId, getTheme } from '@/lib/labelTheme'
+import { LABEL_THEMES, LABEL_GRUPPER, LabelThemeId, getTheme, type LabelGruppe } from '@/lib/labelTheme'
 import StickerCard from './StickerCard'
 
 interface Props {
@@ -24,12 +24,22 @@ const SKALA = 0.42
 
 /**
  * Valg av design og HM-logo, delt av «Print sticker» og «Print etiketter».
+ * Designene er delt i grupper, og stripa viser én gruppe om gangen.
  */
 export default function DesignVelger({ category, themeId, onTheme, logo, onLogo, overrideColor }: Props) {
   const valgt = getTheme(themeId)
+  // Vinduet åpner på gruppen designet man brukte sist står i
+  const [gruppe, setGruppe] = useState<LabelGruppe>(valgt.gruppe)
+  const synlige = LABEL_THEMES.filter(t => t.gruppe === gruppe)
   const stripe = useRef<HTMLDivElement>(null)
 
-  // Med 30 design er stripa mange skjermbredder lang. Et vanlig musehjul
+  const velgGruppe = (g: LabelGruppe) => {
+    setGruppe(g)
+    // Ny gruppe begynner fra starten, ikke midt i der forrige slapp
+    if (stripe.current) stripe.current.scrollLeft = 0
+  }
+
+  // Også én gruppe er flere skjermbredder lang. Et vanlig musehjul
   // ruller den sidelengs — React legger hjul-lyttere som passive, så
   // preventDefault krever en egen lytter.
   useEffect(() => {
@@ -58,8 +68,37 @@ export default function DesignVelger({ category, themeId, onTheme, logo, onLogo,
 
   return (
     <div>
+      <div role="group" aria-label="Designgrupper" className="flex flex-wrap gap-1" style={{ marginBottom: 8 }}>
+        {LABEL_GRUPPER.map(g => {
+          const på = g.id === gruppe
+          return (
+            <button
+              key={g.id}
+              type="button"
+              onClick={() => velgGruppe(g.id)}
+              aria-pressed={på}
+              title={g.hint}
+              className="flex items-center rounded-full transition-colors"
+              style={{
+                gap: 5, padding: '5px 9px', fontSize: '0.75rem', fontWeight: på ? 600 : 500,
+                backgroundColor: på ? 'var(--black)' : 'var(--gray-100)',
+                color: på ? 'var(--white)' : 'var(--ink)',
+              }}
+            >
+              {g.navn}
+              {/* Prikken viser hvilken gruppe det valgte designet ligger i */}
+              {g.id === valgt.gruppe && (
+                <span aria-hidden="true" style={{
+                  width: 5, height: 5, borderRadius: '50%', backgroundColor: 'currentColor',
+                }} />
+              )}
+            </button>
+          )
+        })}
+      </div>
+
       <div ref={stripe} className="flex gap-1 overflow-x-auto" style={{ paddingBottom: 6, scrollSnapType: 'x proximity' }}>
-        {LABEL_THEMES.map(t => {
+        {synlige.map(t => {
           const on = t.id === themeId
           return (
             <button
@@ -97,6 +136,7 @@ export default function DesignVelger({ category, themeId, onTheme, logo, onLogo,
       </div>
       <p style={{ fontSize: '0.72rem', color: 'var(--muted)', marginTop: 2 }}>
         {valgt.name} — {valgt.hint}
+        {valgt.gruppe !== gruppe && ` (under ${LABEL_GRUPPER.find(g => g.id === valgt.gruppe)?.navn})`}
       </p>
 
       <div className="flex items-center justify-between" style={{ marginTop: 14 }}>

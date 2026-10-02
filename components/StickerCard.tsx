@@ -3,7 +3,7 @@
 import { Fragment, useEffect, useState, type CSSProperties, type ReactNode } from 'react'
 import { QRCodeSVG } from 'qrcode.react'
 import { Category, buildQRValue } from '@/types'
-import { LabelThemeId, getTheme, tekstPå, SVART, HVIT } from '@/lib/labelTheme'
+import { LabelThemeId, getTheme, tekstPå, lesbarFarge, SVART, HVIT } from '@/lib/labelTheme'
 import {
   planEtikett, blokkRekkefolge, velgNivå, INGEN_KANT, MIN_RUTE_MM, QR_RUTER,
   type BlokkType, type EtikettPlan, type Sider,
@@ -240,12 +240,19 @@ export default function StickerCard({
   // Skiltet er helt i nummerfeltets farge, så en fellesfarge farger hele etiketten
   const bg = mørk ? SVART : papir ? HVIT : accent
   const ink = papir ? SVART : tekstPå(bg)
+  // Gråtonene holder 4,5:1 mot bunnen — lysere grå blir prikkete og utydelig
+  // på en laserskriver når teksten bare er et par millimeter høy
   const muted = papir ? '#6f6a63' : mørk ? '#bdb8b1' : ink
-  const faint = papir ? '#a8a39c' : mørk ? '#8f8a83' : ink
-  const infoLabelFarge = papir ? '#7c776f' : mørk ? '#a8a39c' : ink
+  const faint = papir ? '#76716a' : mørk ? '#8f8a83' : ink
+  const infoLabelFarge = papir ? '#7a756d' : mørk ? '#a8a39c' : ink
+  // Tekst i nummerfeltets farge rett på bunnen: blir den for svak, tar
+  // etikettens tekstfarge over, og fargen sitter igjen i streken rundt
+  const feltTekst = lesbarFarge(badgeAccent, bg, ink)
   // Skillestreker: svakt i rammefargen på Standard, grått på designene med faste farger
   const linjeBase = theme.accent ? SVART : frameColor
   const linje = (alfa: string) => (papir ? `${linjeBase}${alfa}` : mørk ? 'rgba(255,255,255,0.22)' : ink)
+  // Tegningshodets heltrukne streker over navnet og bunnraden
+  const tegningStrek = papir ? SVART : ink
 
   // ── Mål ──────────────────────────────────────────────────────────────────
   // Infolinjer som ville blitt for små til å leses, tas bort, og planen lages
@@ -452,16 +459,22 @@ export default function StickerCard({
   // Navnet får plassen det trenger; beskrivelsen får det som er igjen i
   // navneblokka. Begge kan gå over flere linjer når teksten er lang.
   const navnVist = NM.upper ? category.name.toUpperCase() : category.name
-  const harDesc = !!category.description && showDesc && !hero
   // Skillestrek over navnet stående — bortsett fra på skiltet, som har sin egen linje
   const skille = !landscape && theme.surface !== 'red'
   // Høyden teksten faktisk har: navneblokka minus lufta og streken over navnet
   const navnRom = nameH - (skille ? gap + 0.3 : 0)
-  const nameFit = isLabel && !hero
-    ? fitBlock(harDesc ? (navnRom - gap / 2) * 0.66 : navnRom, textW, navnVist, 4, NM.w, NM.t, NM.lh, NM.mono)
-    : { mm: 0, lines: 1 }
   // Selv et veldig langt navn skal være lesbart — heller kutte enn å krympe
-  const nameFontMm = Math.max(nameFit.mm, Math.min(1.9, nameH * 0.3))
+  const minNavn = Math.min(1.9, nameH * 0.3)
+  const tilpassNavn = (rom: number) => fitBlock(rom, textW, navnVist, 4, NM.w, NM.t, NM.lh, NM.mono)
+  let harDesc = !!category.description && showDesc && !hero
+  let nameFit = isLabel && !hero ? tilpassNavn(harDesc ? (navnRom - gap / 2) * 0.66 : navnRom) : { mm: 0, lines: 1 }
+  // Navnet er viktigere enn beskrivelsen: måtte navnet kuttes for at
+  // beskrivelsen skal få plass, tas beskrivelsen bort og navnet får hele blokka
+  if (isLabel && !hero && harDesc && nameFit.mm < minNavn) {
+    harDesc = false
+    nameFit = tilpassNavn(navnRom)
+  }
+  const nameFontMm = Math.max(nameFit.mm, minNavn)
   const nameLines = nameFit.lines
   // Beskrivelsen får det som er igjen under navnet, minus lufta mellom dem
   const descBudget = navnRom - nameFontMm * NM.lh * nameLines - gap / 2
@@ -669,7 +682,7 @@ export default function StickerCard({
           ...felles, border: `${mm(kantB)} ${v === 'stamp' ? 'double' : 'solid'} ${badgeAccent}`,
           ...(v === 'stamp' ? { borderRadius: mm(isLabel ? pad * 0.4 : 1.5) } : null), ...alene,
         }}>
-          {lbl(badgeAccent, v === 'stamp' ? { fontWeight: 700 } : undefined)}{tall(badgeAccent)}
+          {lbl(feltTekst, v === 'stamp' ? { fontWeight: 700 } : undefined)}{tall(feltTekst)}
         </div>
       )
     }
@@ -717,17 +730,19 @@ export default function StickerCard({
     if (v === 'cells') {
       const celle: CSSProperties = { display: 'flex', alignItems: 'center', padding: `${mm(bpy * 0.6)} ${mm(bpx * 0.6)}` }
       return (
-        <div style={{ ...felles, padding: 0, borderRadius: 0, alignItems: 'stretch', border: `${mm(celleB)} solid ${SVART}` }}>
-          {lbl(SVART, { ...celle, borderRight: `${mm(celleB)} solid ${SVART}` })}
-          {tall(SVART, { ...celle, flex: 1, justifyContent: bf.visLabel ? 'flex-end' : 'center' })}
+        <div style={{ ...felles, padding: 0, borderRadius: 0, alignItems: 'stretch', border: `${mm(celleB)} solid ${badgeAccent}` }}>
+          {lbl(feltTekst, { ...celle, borderRight: `${mm(celleB)} solid ${badgeAccent}` })}
+          {tall(feltTekst, { ...celle, flex: 1, justifyContent: bf.visLabel ? 'flex-end' : 'center' })}
         </div>
       )
     }
     if (v === 'split') {
       const celle: CSSProperties = { display: 'flex', alignItems: 'center', padding: `${mm(bpy)} ${mm(bpx * 0.7)}` }
+      // Tekstfeltet er svart — eller i designets farge når nummerfeltet selv er svart
+      const tekstFelt = badgeAccent === SVART ? accent : SVART
       return (
         <div style={{ ...felles, padding: 0, alignItems: 'stretch' }}>
-          {lbl(HVIT, { ...celle, backgroundColor: SVART })}
+          {lbl(tekstPå(tekstFelt), { ...celle, backgroundColor: tekstFelt })}
           {tall(påBadge, { ...celle, flex: 1, justifyContent: 'center', backgroundColor: badgeAccent })}
         </div>
       )
@@ -741,7 +756,7 @@ export default function StickerCard({
     }
     if (v === 'stack') {
       // Fylt felt, eller bare kantlinje i fargen (Rammet nummer)
-      const farge = theme.outlined ? badgeAccent : påBadge
+      const farge = theme.outlined ? feltTekst : påBadge
       return (
         <div style={{
           ...felles, flexDirection: 'column', justifyContent: 'center', gap: mm(bf.shelf * 0.08),
@@ -756,7 +771,7 @@ export default function StickerCard({
     if (v === 'number') {
       return (
         <div style={{ ...felles, padding: 0, borderRadius: 0, justifyContent: venstre ? 'flex-start' : 'center' }}>
-          {tall(badgeAccent, { lineHeight: 1.25 })}
+          {tall(feltTekst, { lineHeight: 1.25 })}
         </div>
       )
     }
@@ -799,7 +814,7 @@ export default function StickerCard({
     if (qrMerker) {
       // Hjørnemerker som i en søker. De står utenfor koden, i lufta rundt den.
       const lengde = mm(bredde * 0.14)
-      const strek = `${mm(Math.max(0.3, bredde * 0.012))} solid ${SVART}`
+      const strek = `${mm(Math.max(0.3, bredde * 0.012))} solid ${accent}`
       const hjørner: CSSProperties[] = [
         { top: 0, left: 0, borderTop: strek, borderLeft: strek },
         { top: 0, right: 0, borderTop: strek, borderRight: strek },
@@ -950,7 +965,7 @@ export default function StickerCard({
         flexDirection: landscape ? 'column' : undefined,
         justifyContent: landscape ? 'center' : undefined,
         textAlign: venstre ? 'left' : 'center',
-        borderTop: skille ? (v === 'cells' ? `${mm(0.3)} solid ${SVART}` : `1px solid ${linje('22')}`) : undefined,
+        borderTop: skille ? (v === 'cells' ? `${mm(0.3)} solid ${tegningStrek}` : `1px solid ${linje('22')}`) : undefined,
         paddingTop: skille ? (isPage ? '8mm' : isLabel ? mm(gap) : mm(grunnPad / 2)) : 0,
         marginTop: mm(over),
       }}
@@ -1026,7 +1041,7 @@ export default function StickerCard({
           overflow: 'hidden',
           // Liggende etikett har ingen strek over bunnraden fra før — uten den
           // flyter logoen og ID-en løst under teksten
-          borderTop: footLinje ? (v === 'cells' ? `${mm(0.3)} solid ${SVART}` : `0.2mm solid ${linje('33')}`) : undefined,
+          borderTop: footLinje ? (v === 'cells' ? `${mm(0.3)} solid ${tegningStrek}` : `0.2mm solid ${linje('33')}`) : undefined,
           paddingTop: footLinje ? mm(isLabel ? gap / 2 : gap / 3) : undefined,
           marginTop: mm(over),
           ...bånd,
@@ -1089,8 +1104,10 @@ export default function StickerCard({
   const stripeTekst = (() => {
     if (!stripe || !showBadge) return null
     // Stående tekst langs hele høyden. Den frie etiketten har ingen fast høyde,
-    // så der anslås den ut fra bredden.
-    const lengde = (isLabel ? heightMm! : isPage ? 277 : innerW * 1.2) - frame.t - frame.b
+    // så der anslås den ut fra bredden. Teksten står midt på, så begge endene
+    // holdes unna rammen og skriverens døde sone oppe og nede.
+    const ender = isLabel ? Math.max(frame.t, frame.b, kant.t, kant.b) : Math.max(frame.t, frame.b)
+    const lengde = (isLabel ? heightMm! : isPage ? 277 : innerW * 1.2) - 2 * ender
     for (const t of [BADGE_TEXT, BADGE_TEXT_SHORT]) {
       const f = Math.min(stripe * 0.5, (lengde * 0.8) / textW1(t, 700, 0.2))
       if (f >= 1.2) return { t, f }
