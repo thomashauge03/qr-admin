@@ -279,10 +279,16 @@ export default function StickerCard({
   // Fri modus (enkelt klistremerke uten fast høyde) skaleres med bredden
   const k = cardMm / 60
   const grunnPad = isPage ? 14 : Math.max(1.5, Math.round(6 * k * 10) / 10)
-  const luft: Sider = plan ? plan.pad : like(grunnPad * (theme.innerLine ? 1.5 : 1))
+  // Hengelappens hull ligger i en egen sone øverst, over innholdet
+  const hull = plan ? plan.hull : theme.hull ? (isPage ? 14 : klem(cardMm * 0.12, 4, 9)) : 0
+  const luft: Sider = plan ? plan.pad : (() => {
+    const p = grunnPad * (theme.innerLine ? 1.5 : 1)
+    return { t: p + hull, r: p, b: p, l: p }
+  })()
   const frame: Sider = plan ? plan.frame : (() => {
     if (theme.frame === 'none' || theme.frame === 'corners') return like(0)
     if (theme.frame === 'bands') { const b = isPage ? 7 : 2.2 * k; return { t: b, r: 0, b, l: 0 } }
+    if (theme.frame === 'heavy' || theme.frame === 'hazard') return like(isPage ? 5 : 2 * k)
     return like(theme.frame === 'thick' || theme.frame === 'double' ? (isPage ? 3 : 1.4 * k) : isPage ? 1.06 : 0.53)
   })()
   const stripe = plan ? plan.stripe : theme.sideStripe ? (isPage ? 16 : 5 * k) : 0
@@ -291,7 +297,8 @@ export default function StickerCard({
   const textW = plan ? plan.textW : innerW
   const gap = plan ? plan.gap : isPage ? 10 : grunnPad / 2
   // Én luftverdi der designet trenger et grunnmål (avrunding, hjørner, saks)
-  const pad = Math.min(luft.t, luft.r, luft.b, luft.l)
+  const pad = Math.min(luft.t - hull, luft.r, luft.b, luft.l)
+  const pille = theme.corners === 'pill'
 
   const logoIn = plan ? plan.logoIn : logo ? theme.logoSlot : null
   const showId = plan ? plan.showId : true
@@ -324,7 +331,7 @@ export default function StickerCard({
     : { w: 600, t: 0.1, mono: false }
   const NR: Skrift = theme.type === 'mono' ? { w: 700, t: 0.02, mono: true }
     : theme.type === 'heavy' ? { w: 900, t: -0.01, mono: false }
-    : v === 'stack' || v === 'number' || v === 'dot' ? { w: 800, t: -0.02, mono: false }
+    : v === 'stack' || v === 'number' || v === 'dot' || v === 'square' ? { w: 800, t: -0.02, mono: false }
     : { w: 500, t: 0.02, mono: true }
   // Monoskriften er høyere enn Inter og trenger mer linjehøyde for ikke å klippes
   const NM = theme.type === 'mono' ? { w: 700 as Vekt, t: 0.02, mono: true, upper: true, lh: 1.3 }
@@ -334,9 +341,14 @@ export default function StickerCard({
   // ── Nummerfeltet ─────────────────────────────────────────────────────────
   const badgeText = innerW < 55 ? BADGE_TEXT_SHORT : BADGE_TEXT
   const bleed = v === 'band' || !!theme.badgeBleed
-  const bpx = isPage ? 8 : isLabel ? pad : grunnPad
+  // Feltet med runde ender trenger mer luft på sidene, ellers kuttes teksten av rundingen
+  const bpx = isPage ? 8 : isLabel ? (pille ? Math.max(pad, badgeH * 0.35) : pad) : grunnPad
   const bpy = isPage ? 6 : isLabel ? 0 : grunnPad / 3
-  const kantB = v === 'outline' ? (isLabel ? Math.max(0.3, badgeH * 0.045) : isPage ? 1 : 0.5) : 0
+  const kantB = v === 'outline' ? (isLabel ? Math.max(0.3, badgeH * 0.045) : isPage ? 1 : 0.5)
+    // Dobbel strek trenger tykkelse for å vise to linjer, ikke én grå
+    : v === 'stamp' ? (isLabel ? Math.max(0.9, badgeH * 0.12) : isPage ? 2 : 1.2)
+    : 0
+  const stabelKant = v === 'stack' && theme.outlined ? (isLabel ? Math.max(0.4, badgeH * 0.05) : isPage ? 1.2 : 0.6) : 0
   // Stripekanten tar en femtedel av feltet — men på de minste etikettene ville
   // det latt nummeret bli igjen som 1 mm tekst, så der blir stripene smalere
   const stripeB = v === 'stripes' ? (isLabel ? badgeH * klem(0.1 + badgeH * 0.0125, 0.12, 0.2) : isPage ? 5 : 1.6 * k) : 0
@@ -346,14 +358,15 @@ export default function StickerCard({
   // Bredden teksten i feltet har til rådighet, innenfor padding og kanter
   const romW =
     bleed ? (landscape ? textW - luft.l * 0.6 : textW)
-    : v === 'outline' ? textW - 2 * bpx - 2 * kantB
+    : v === 'outline' || v === 'stamp' ? textW - 2 * bpx - 2 * kantB
     : v === 'stripes' ? textW - 2 * stripeB - 0.5 - 2 * bpx * 0.7
     : v === 'cells' ? textW - 3 * celleB - 4 * bpx * 0.6
     : v === 'split' ? textW - 4 * bpx * 0.7
-    : v === 'rule' || v === 'number' || v === 'dot' ? textW
-    : textW - 2 * bpx
+    : v === 'rule' || v === 'number' || v === 'dot' || v === 'square' || v === 'tab' ? textW
+    : textW - 2 * bpx - 2 * stabelKant
   const boxH =
-    v === 'outline' ? badgeH - 2 * kantB
+    v === 'outline' || v === 'stamp' ? badgeH - 2 * kantB
+    : v === 'stack' ? badgeH - 2 * stabelKant
     : v === 'stripes' ? badgeH - 2 * stripeB - 0.5
     : v === 'cells' ? badgeH - 2 * celleB
     : v === 'rule' ? badgeH - regelB
@@ -383,14 +396,27 @@ export default function StickerCard({
       return { label, shelf: 0, d: 0, visLabel: lesbar(label) }
     }
     if (v === 'stack') {
-      const label = Math.min(isLabel ? badgeH * 0.15 : F.stackLabel / PT, (romW * 0.95) / Math.max(0.05, wTekst))
-      const shelf = Math.min(isLabel ? badgeH * 0.58 : F.stackNr / PT, (romW * 0.95) / Math.max(0.05, wNr))
+      const label = Math.min(isLabel ? boxH * 0.15 : F.stackLabel / PT, (romW * 0.95) / Math.max(0.05, wTekst))
+      const shelf = Math.min(isLabel ? boxH * 0.58 : F.stackNr / PT, (romW * 0.95) / Math.max(0.05, wNr))
       return { label, shelf, d: 0, visLabel: lesbar(label) }
+    }
+    if (v === 'tab') {
+      // Nummeret i fanen, teksten ved siden av. Fanen får aldri mer enn 60 %
+      // av bredden — med mindre teksten må vike for at nummeret skal kunne leses.
+      const tabPad = isLabel ? Math.max(0.6, badgeH * 0.2) : isPage ? 5 : grunnPad * 0.6
+      const nrMaks = isLabel ? badgeH * 0.56 : (F.shelf / PT) * 1.2
+      const shelf = Math.min(nrMaks, (textW * 0.6 - 2 * tabPad) / Math.max(0.05, wNr))
+      const fane = shelf * wNr + 2 * tabPad
+      const label = Math.min(isLabel ? badgeH * 0.28 : F.label / PT, Math.max(0, textW - fane - tabPad) / Math.max(0.05, wTekst))
+      if (isLabel && (!lesbar(label) || shelf < MIN_NUMMER)) {
+        return { label: 0, shelf: Math.min(nrMaks, (textW * 0.95 - 2 * tabPad) / Math.max(0.05, wNr)), d: 0, tabPad, visLabel: false }
+      }
+      return { label, shelf, d: 0, tabPad, visLabel: label > 0 }
     }
     if (v === 'number') {
       return { label: 0, shelf: Math.min(isLabel ? badgeH * 0.78 : F.soloNr / PT, romW / Math.max(0.05, wNr)), d: 0, visLabel: false }
     }
-    if (v === 'dot') {
+    if (v === 'dot' || v === 'square') {
       // Sirkelen er like høy som feltet. Et langt nummer som «HM-1042» ville
       // krympet til 0,8 mm inne i en sirkel, så da strekkes den til en pille
       // med runde ender — korte nummer beholder sirkelen.
@@ -501,9 +527,10 @@ export default function StickerCard({
     }
     const badge = !showBadge ? 0
       : hero ? 2 * bpy + linjeH(F.bandLabel)
-      : v === 'stack' ? 2 * bpy + linjeH(F.stackLabel, 1) + bf.shelf * 1.03
+      : v === 'stack' ? 2 * bpy + linjeH(F.stackLabel, 1) + bf.shelf * 1.03 + 2 * stabelKant
       : v === 'number' ? bf.shelf * 1.25
-      : v === 'dot' ? bf.d
+      : v === 'dot' || v === 'square' ? bf.d
+      : v === 'tab' ? 2 * bpy + linjeH(F.shelf * 1.2)
       : v === 'rule' ? linjeH(F.shelf) + regelB
       : v === 'stripes' ? 2 * stripeB + 0.5 + 1.2 * bpy + linjeH(F.shelf)
       : v === 'cells' ? 2 * celleB + 1.2 * bpy + linjeH(F.shelf)
@@ -538,11 +565,16 @@ export default function StickerCard({
   const qrSvgMm = qrMerker || qrRamme ? planlagtSvg : qrW
   const qrNivå = velgNivå(qrValue, qrSvgMm).nivå
 
+  // Store runde hjørner holdes under 2,5 × lufta: større ville rundingen
+  // skåret inn i logoen og nummerfeltet i hjørnene
   const hjørne = theme.corners === 'square' ? 0
+    : pille ? (isPage ? 24 : isLabel ? pad * 2.5 : 10)
     : isPage ? (theme.frame === 'thick' ? 11 : 8)
     : isLabel ? pad * (theme.frame === 'thick' ? 1.5 : 1)
     : theme.frame === 'thick' ? 6 : 4
   const badgeHjørne = theme.corners === 'square' ? 0 : isPage ? 4 : isLabel ? pad / 2 : 2.12
+  // Feltet med runde ender: halve høyden på etikettark, helt rundt i de frie formatene
+  const badgeRunding = pille ? (isLabel ? mm(badgeH / 2) : '999px') : mm(badgeHjørne)
   const førsteBlokk = blokker[0]?.type
   // Sidestripen har teksten på høykant, så tekst og nummer står venstrestilt
   const venstre = landscape || !!theme.sideStripe
@@ -593,7 +625,7 @@ export default function StickerCard({
       flexShrink: 0,
       overflow: 'hidden',
       marginTop: mm(over),
-      borderRadius: mm(badgeHjørne),
+      borderRadius: badgeRunding,
       padding: `${mm(bpy)} ${mm(bpx)}`,
     }
     const lbl = (farge: string, ekstra?: CSSProperties) => bf.visLabel && (
@@ -631,10 +663,35 @@ export default function StickerCard({
         </div>
       )
     }
-    if (v === 'outline') {
+    if (v === 'outline' || v === 'stamp') {
       return (
-        <div style={{ ...felles, border: `${mm(kantB)} solid ${badgeAccent}`, ...alene }}>
-          {lbl(badgeAccent)}{tall(badgeAccent)}
+        <div style={{
+          ...felles, border: `${mm(kantB)} ${v === 'stamp' ? 'double' : 'solid'} ${badgeAccent}`,
+          ...(v === 'stamp' ? { borderRadius: mm(isLabel ? pad * 0.4 : 1.5) } : null), ...alene,
+        }}>
+          {lbl(badgeAccent, v === 'stamp' ? { fontWeight: 700 } : undefined)}{tall(badgeAccent)}
+        </div>
+      )
+    }
+    if (v === 'tab') {
+      // Fanen henger fra venstre kant — og fra toppen når den står øverst
+      const først = førsteBlokk === 'badge'
+      const venstreUt = !landscape
+      const runding = mm(isLabel ? pad * 0.6 : 2)
+      return (
+        <div style={{
+          ...felles, padding: 0, borderRadius: 0, overflow: 'visible', alignItems: 'stretch',
+          justifyContent: 'flex-start', gap: mm(bf.tabPad ?? 0),
+          marginTop: først ? mm(-luft.t) : mm(over),
+          height: isLabel ? mm(badgeH + (først ? luft.t : 0)) : undefined,
+        }}>
+          {tall(påBadge, {
+            display: 'flex', alignItems: 'center', flexShrink: 0, lineHeight: 1, backgroundColor: badgeAccent,
+            marginLeft: venstreUt ? mm(-luft.l) : 0,
+            padding: `${mm(bpy + (først ? luft.t : 0))} ${mm(bf.tabPad ?? 0)} ${mm(bpy)} ${mm((bf.tabPad ?? 0) + (venstreUt ? luft.l : 0))}`,
+            borderRadius: venstreUt ? `0 0 ${runding} 0` : `0 0 ${runding} ${runding}`,
+          })}
+          {lbl(ink, { alignSelf: 'center', paddingTop: først ? mm(luft.t) : 0, overflow: 'hidden', minWidth: 0 })}
         </div>
       )
     }
@@ -683,12 +740,16 @@ export default function StickerCard({
       )
     }
     if (v === 'stack') {
+      // Fylt felt, eller bare kantlinje i fargen (Rammet nummer)
+      const farge = theme.outlined ? badgeAccent : påBadge
       return (
         <div style={{
           ...felles, flexDirection: 'column', justifyContent: 'center', gap: mm(bf.shelf * 0.08),
-          backgroundColor: badgeAccent, ...(theme.badgeBleed ? utfallende(over) : null),
+          backgroundColor: theme.outlined ? 'transparent' : badgeAccent,
+          border: stabelKant ? `${mm(stabelKant)} solid ${badgeAccent}` : undefined,
+          ...(theme.badgeBleed ? utfallende(over) : null),
         }}>
-          {lbl(påBadge, { lineHeight: 1 })}{tall(påBadge, { lineHeight: 0.95 })}
+          {lbl(farge, { lineHeight: 1 })}{tall(farge, { lineHeight: 0.95 })}
         </div>
       )
     }
@@ -699,14 +760,15 @@ export default function StickerCard({
         </div>
       )
     }
-    if (v === 'dot') {
+    if (v === 'dot' || v === 'square') {
       return (
         <div style={{
           ...felles, padding: 0, borderRadius: 0, gap: mm(bf.d * 0.2),
           justifyContent: landscape ? 'flex-start' : 'center',
         }}>
           {tall(påBadge, {
-            width: mm(bf.pille ?? bf.d), height: mm(bf.d), borderRadius: mm(bf.d / 2), backgroundColor: badgeAccent,
+            width: mm(bf.pille ?? bf.d), height: mm(bf.d), backgroundColor: badgeAccent,
+            borderRadius: mm(v === 'square' ? bf.d * 0.12 : bf.d / 2),
             display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, lineHeight: 1,
           })}
           {lbl(ink)}
@@ -1044,6 +1106,10 @@ export default function StickerCard({
   const merkeStrek = `${mm(isPage ? 0.7 : 0.35)} solid ${frameColor}`
   // Rutepapir: ruter som passer etiketten — ikke større enn 5 mm, ikke mindre enn 2
   const rute = isPage ? 5 : isLabel ? klem(heightMm! * 0.07, 2, 5) : klem(cardMm * 0.07, 2, 5)
+  // Hullet på hengelappen: stiplet sirkel midt i sonen som er satt av øverst
+  const hullD = hull * 0.62
+  // Varselrammens striper følger rammetykkelsen
+  const stripeBredde = Math.max(frame.t, 0.8) * 1.1
 
   const dekor = (
     <>
@@ -1078,6 +1144,13 @@ export default function StickerCard({
       ] satisfies CSSProperties[]).map((h, i) => (
         <span key={i} style={{ position: 'absolute', width: mm(merkeLengde), height: mm(merkeLengde), ...h }} />
       ))}
+      {hull > 0 && (
+        <span style={{
+          position: 'absolute', top: mm((luft.t - hullD) / 2), left: '50%',
+          width: mm(hullD), height: mm(hullD), marginLeft: mm(-hullD / 2), boxSizing: 'border-box',
+          borderRadius: '50%', border: `${mm(isPage ? 0.7 : 0.35)} dashed ${SVART}`,
+        }} />
+      )}
       {theme.scissors && saksMm >= 1.2 && (
         <svg viewBox="0 0 24 24" fill="none" stroke={SVART} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"
           style={{ position: 'absolute', top: mm((luft.t - saksMm) / 2), left: mm(luft.l * 2), width: mm(saksMm), height: mm(saksMm) }}>
@@ -1092,7 +1165,18 @@ export default function StickerCard({
   )
 
   const strekStil = theme.frame === 'dashed' ? 'dashed' : theme.frame === 'double' ? 'double' : 'solid'
-  const strek = (b: number) => (b > 0 ? `${mm(b)} ${strekStil} ${frameColor}` : 'none')
+  // Varselrammen er en gjennomsiktig kant der stripebakgrunnen synes gjennom
+  const varsel = theme.frame === 'hazard'
+  const strek = (b: number) => (b > 0 ? `${mm(b)} ${strekStil} ${varsel ? 'transparent' : frameColor}` : 'none')
+  // Én bakgrunn-egenskap for alle design: blandes «background» og
+  // «backgroundColor» mellom to tegninger, advarer React og stilen kan bli stående
+  const bakgrunn = varsel
+    ? `linear-gradient(${bg}, ${bg}) padding-box, repeating-linear-gradient(-45deg, ${accent} 0 ${mm(stripeBredde)}, ${HVIT} ${mm(stripeBredde)} ${mm(2 * stripeBredde)}) border-box`
+    : theme.pattern === 'grid'
+    ? `linear-gradient(#cfcfcf 0.25mm, transparent 0.25mm) 0 0 / ${mm(rute)} ${mm(rute)}, linear-gradient(90deg, #cfcfcf 0.25mm, transparent 0.25mm) 0 0 / ${mm(rute)} ${mm(rute)}, ${bg}`
+    : theme.pattern === 'dots'
+    ? `radial-gradient(circle, #b8b8b8 0.32mm, transparent 0.4mm) 0 0 / ${mm(rute * 0.8)} ${mm(rute * 0.8)}, ${bg}`
+    : bg
   const cardStyle: CSSProperties = {
     position: 'relative',
     boxSizing: 'border-box',
@@ -1100,17 +1184,13 @@ export default function StickerCard({
     flexDirection: landscape ? 'row' : 'column',
     alignItems: 'center',
     // Helt ark: innholdet midt på siden — med mindre et felt skal stå helt øverst
-    justifyContent: isPage ? (bleed && førsteBlokk === 'badge' ? 'flex-start' : 'center') : undefined,
+    justifyContent: isPage ? ((bleed || v === 'tab') && førsteBlokk === 'badge' ? 'flex-start' : 'center') : undefined,
     gap: landscape ? mm(gap) : undefined,
     width: mm(cardMm),
     height: isPage ? '277mm' : isLabel ? mm(heightMm!) : undefined,
     overflow: 'hidden',
     padding: `${mm(luft.t)} ${mm(luft.r)} ${mm(luft.b)} ${mm(luft.l + stripe + stripeX)}`,
-    backgroundColor: bg,
-    backgroundImage: theme.pattern === 'grid'
-      ? 'linear-gradient(#cfcfcf 0.25mm, transparent 0.25mm), linear-gradient(90deg, #cfcfcf 0.25mm, transparent 0.25mm)'
-      : undefined,
-    backgroundSize: theme.pattern === 'grid' ? `${mm(rute)} ${mm(rute)}` : undefined,
+    background: bakgrunn,
     borderTop: strek(frame.t),
     borderRight: strek(frame.r),
     borderBottom: strek(frame.b),

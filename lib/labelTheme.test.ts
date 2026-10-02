@@ -11,9 +11,11 @@ const NYE: LabelThemeId[] = [
   'skilt', 'stort', 'stripe', 'klipp', 'ramme', 'topp',
   'svarthvitt', 'rodtopp', 'rodbunn', 'natt', 'klassisk', 'kutt', 'banner', 'millimeter',
   'todelt', 'nederst', 'storqr', 'baand', 'prikk', 'qrramme', 'morkbjelke', 'rammeiramme',
+  'varsel', 'fane', 'stempel', 'svartrod', 'rammetnr', 'rodflate', 'negativ', 'pille',
+  'hengelapp', 'rute', 'prikkpapir', 'kraftig',
 ]
 
-test('28 design i tillegg til Standard og Hauge Maskin', () => {
+test('40 design i tillegg til Standard og Hauge Maskin', () => {
   assert.deepEqual(LABEL_THEMES.map(t => t.id), ['plain', 'hauge', ...NYE])
   assert.equal(new Set(LABEL_THEMES.map(t => t.name)).size, LABEL_THEMES.length)
 })

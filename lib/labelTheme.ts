@@ -19,6 +19,8 @@ export type LabelThemeId =
   | 'skilt' | 'stort' | 'stripe' | 'klipp' | 'ramme' | 'topp'
   | 'svarthvitt' | 'rodtopp' | 'rodbunn' | 'natt' | 'klassisk' | 'kutt' | 'banner' | 'millimeter'
   | 'todelt' | 'nederst' | 'storqr' | 'baand' | 'prikk' | 'qrramme' | 'morkbjelke' | 'rammeiramme'
+  | 'varsel' | 'fane' | 'stempel' | 'svartrod' | 'rammetnr' | 'rodflate' | 'negativ' | 'pille'
+  | 'hengelapp' | 'rute' | 'prikkpapir' | 'kraftig'
 
 export interface LabelTheme {
   id: LabelThemeId
@@ -33,10 +35,12 @@ export interface LabelTheme {
   surface: 'paper' | 'dark' | 'red'
   /**
    * Rammen rundt etiketten. Tykk og dobbel vokser med etiketten; «corners» er
-   * kuttemerker i hjørnene og «bands» er bånd bare oppe og nede.
+   * kuttemerker i hjørnene og «bands» er bånd bare oppe og nede. «heavy» er
+   * en ekstra tykk strek og «hazard» en stripet varselramme i `accent` og hvitt.
    */
-  frame: 'thin' | 'thick' | 'dashed' | 'double' | 'corners' | 'bands' | 'none'
-  corners: 'round' | 'square'
+  frame: 'thin' | 'thick' | 'dashed' | 'double' | 'corners' | 'bands' | 'heavy' | 'hazard' | 'none'
+  /** Hjørnene: «pill» gir store runde hjørner og nummerfelt med runde ender */
+  corners: 'round' | 'square' | 'pill'
   /**
    * Nummerfeltet — «UTSTYR NUMMER» og selve nummeret:
    *  fill     fylt felt, tekst og nummer side om side
@@ -49,8 +53,12 @@ export interface LabelTheme {
    *  number   bare nummeret — teksten står i sidestripen
    *  split    to felt: svart med teksten, farget med nummeret
    *  dot      nummeret i en sirkel, teksten ved siden av
+   *  square   nummeret i en firkant, teksten ved siden av
+   *  tab      nummeret i en fane som henger fra hjørnet, teksten ved siden av
+   *  stamp    dobbel kantlinje rundt tekst og nummer, som et stempel
    */
   badge: 'fill' | 'outline' | 'band' | 'stripes' | 'cells' | 'rule' | 'stack' | 'number' | 'split' | 'dot'
+    | 'square' | 'tab' | 'stamp'
   /** Farge på nummerfeltet når den skal være en annen enn `accent` */
   badgeColor?: string
   /** Skrift på navn og nummer */
@@ -73,8 +81,12 @@ export interface LabelTheme {
   badgeBleed?: boolean
   /** Farget felt nederst med logo og ID */
   footBand?: boolean
-  /** Rutepapir i bakgrunnen */
-  pattern?: 'grid'
+  /** Rutepapir eller prikker i bakgrunnen */
+  pattern?: 'grid' | 'dots'
+  /** Stablet nummer med kantlinje i stedet for fylt felt */
+  outlined?: boolean
+  /** Merke for hull øverst, til en hengelapp som festes med strips */
+  hull?: boolean
   /** Nummerfeltet nederst, under navnet */
   badgeLast?: boolean
   /** Mest mulig plass til QR-koden: smalt nummerfelt, ingen beskrivelse */
@@ -253,6 +265,71 @@ export const LABEL_THEMES: LabelTheme[] = [
     accent: HM_RED, border: SVART,
     surface: 'paper', frame: 'thin', corners: 'round', badge: 'fill', type: 'sans', logoSlot: 'foot',
     innerLine: true,
+  },
+  {
+    id: 'varsel', name: 'Varselramme', hint: 'Rød og hvit stripet ramme',
+    accent: HM_RED, border: HM_RED, badgeColor: SVART,
+    surface: 'paper', frame: 'hazard', corners: 'square', badge: 'fill', type: 'heavy', logoSlot: 'foot',
+  },
+  {
+    id: 'fane', name: 'Fane', hint: 'Nummeret i en rød fane i hjørnet',
+    accent: HM_RED, border: SVART,
+    surface: 'paper', frame: 'thin', corners: 'round', badge: 'tab', type: 'heavy', logoSlot: 'foot',
+  },
+  {
+    id: 'stempel', name: 'Stempel', hint: 'Nummeret i et rødt stempel',
+    accent: HM_RED, border: SVART,
+    surface: 'paper', frame: 'thin', corners: 'round', badge: 'stamp', type: 'mono', logoSlot: 'foot',
+  },
+  {
+    id: 'svartrod', name: 'Svart og rødt', hint: 'Svart felt øverst, rødt felt nederst',
+    accent: HM_RED, border: SVART, badgeColor: SVART,
+    surface: 'paper', frame: 'thin', corners: 'square', badge: 'band', type: 'heavy', logoSlot: 'foot',
+    footBand: true,
+  },
+  {
+    id: 'rammetnr', name: 'Rammet nummer', hint: 'Stort nummer i rød ramme',
+    accent: HM_RED, border: SVART,
+    surface: 'paper', frame: 'thin', corners: 'round', badge: 'stack', type: 'sans', logoSlot: 'foot',
+    outlined: true,
+  },
+  {
+    id: 'rodflate', name: 'Rød flate', hint: 'Hel rød etikett — bruker mye blekk',
+    accent: HM_RED, border: null, badgeColor: HVIT,
+    surface: 'red', frame: 'none', corners: 'round', badge: 'fill', type: 'heavy', logoSlot: 'foot',
+  },
+  {
+    id: 'negativ', name: 'Negativ', hint: 'Svart med hvit linje — bruker mye blekk',
+    accent: HM_RED, border: null, badgeColor: HVIT,
+    surface: 'dark', frame: 'none', corners: 'round', badge: 'outline', type: 'sans', logoSlot: 'foot',
+    innerLine: true,
+  },
+  {
+    id: 'pille', name: 'Pille', hint: 'Runde hjørner og rundt nummerfelt',
+    accent: HM_RED, border: SVART,
+    surface: 'paper', frame: 'thin', corners: 'pill', badge: 'fill', type: 'sans', logoSlot: 'foot',
+  },
+  {
+    id: 'hengelapp', name: 'Hengelapp', hint: 'Merke for hull — henges på med strips',
+    accent: HM_RED, border: SVART,
+    surface: 'paper', frame: 'thin', corners: 'round', badge: 'fill', type: 'sans', logoSlot: 'foot',
+    hull: true,
+  },
+  {
+    id: 'rute', name: 'Rute', hint: 'Nummeret i en rød firkant',
+    accent: HM_RED, border: SVART,
+    surface: 'paper', frame: 'thin', corners: 'square', badge: 'square', type: 'heavy', logoSlot: 'foot',
+  },
+  {
+    id: 'prikkpapir', name: 'Prikkpapir', hint: 'Prikker i bakgrunnen',
+    accent: HM_RED, border: SVART,
+    surface: 'paper', frame: 'thin', corners: 'round', badge: 'fill', type: 'sans', logoSlot: 'foot',
+    pattern: 'dots',
+  },
+  {
+    id: 'kraftig', name: 'Kraftig', hint: 'Ekstra tykk svart ramme',
+    accent: HM_RED, border: SVART,
+    surface: 'paper', frame: 'heavy', corners: 'square', badge: 'fill', type: 'heavy', logoSlot: 'foot',
   },
 ]
 

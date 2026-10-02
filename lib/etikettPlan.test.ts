@@ -176,6 +176,23 @@ test('QR: innhold som ikke får plass i noen versjon gir største versjon', () =
   assert.equal(qrRuter('x'.repeat(5000), 'M'), 177 + 8)
 })
 
+test('hengelappen har plass til hullet øverst, uten å gå ut over innholdet', () => {
+  const t = LABEL_THEMES.find(x => x.id === 'hengelapp')!
+  for (const f of FORMATER) {
+    const p = planEtikett({ w: f.w, h: f.h, theme: t, logo: true, showBadge: true, hasInfo: false })
+    assert.ok(p.hull > 0, f.id)
+    assert.ok(p.pad.t >= p.pad.b + p.hull - EPS, `${f.id}: ${p.pad.t} < ${p.pad.b} + ${p.hull}`)
+  }
+})
+
+test('kraftig og varselramme er tykkere enn den vanlige rammen', () => {
+  for (const id of ['kraftig', 'varsel']) {
+    const t = LABEL_THEMES.find(x => x.id === id)!
+    const p = planEtikett({ w: 105, h: 74.25, theme: t, logo: true, showBadge: true, hasInfo: false })
+    assert.ok(p.frame.t >= 1.5 && p.frame.l >= 1.5, `${id}: ${p.frame.t}`)
+  }
+})
+
 test('design med bunnbånd har alltid en bunnrad, også uten logo og ID', () => {
   for (const t of LABEL_THEMES.filter(x => x.footBand)) {
     const p = planEtikett({ w: 52.5, h: 29.7, theme: t, logo: false, showBadge: true, hasInfo: false })

@@ -86,6 +86,8 @@ export interface EtikettPlan {
   stripe: number
   /** Hvor langt inn sidestripen er skjøvet for å holde seg unna arkkanten */
   stripeX: number
+  /** Høyden som er satt av til hullet på en hengelapp, øverst i lufta. 0 uten. */
+  hull: number
   /** Plassen blokkene deler — uten ramme, luft og stripe */
   innerW: number
   innerH: number
@@ -121,6 +123,11 @@ export function rammeMm(frame: LabelTheme['frame'], h: number): Sider {
   if (frame === 'bands') {
     const bånd = klem(h * 0.04, 1.5, 7)
     return { t: bånd, r: 0, b: bånd, l: 0 }
+  }
+  // Varselstripene trenger bredde for å synes som striper, ikke grå strek
+  if (frame === 'heavy' || frame === 'hazard') {
+    const v = klem(h * 0.035, 1.5, 6)
+    return { t: v, r: v, b: v, l: v }
   }
   const v = frame === 'thick' || frame === 'double' ? klem(h * 0.016, 0.9, 2.2) : 0.4
   return { t: v, r: v, b: v, l: v }
@@ -174,8 +181,10 @@ export function planEtikett({ w, h, theme, logo, showBadge, hasInfo, kant = INGE
   // Innholdet holdes unna skriverens døde sone. Rammen og bakgrunnen kan gå ut
   // i den — de blir bare ikke printet helt ut — men tekst og QR må med.
   const stripeX = stripe ? Math.max(0, kant.l - frame.l) : 0
+  // Hengelappen har hullet over innholdet, i en egen sone øverst
+  const hull = theme.hull ? klem(h * 0.1, 3, 10) : 0
   const luft: Sider = {
-    t: Math.max(pad, kant.t - frame.t),
+    t: Math.max(pad, kant.t - frame.t) + hull,
     r: Math.max(pad, kant.r - frame.r),
     b: Math.max(pad, kant.b - frame.b),
     l: stripe ? pad : Math.max(pad, kant.l - frame.l),
@@ -198,7 +207,9 @@ export function planEtikett({ w, h, theme, logo, showBadge, hasInfo, kant = INGE
   const badgeAndel = hero ? 0.5
     : theme.qrFocus ? 0.7
     : theme.badge === 'stack' ? 1.4
-    : theme.badge === 'dot' ? 1.25
+    : theme.badge === 'dot' || theme.badge === 'square' ? 1.25
+    : theme.badge === 'stamp' ? 1.15
+    : theme.badge === 'tab' ? 1.1
     : theme.badge === 'number' ? 1.2
     : theme.badge === 'stripes' ? 1.1
     : 1
@@ -245,7 +256,7 @@ export function planEtikett({ w, h, theme, logo, showBadge, hasInfo, kant = INGE
   const blokker = rekkefolge.map((type, i) => ({ type, h: høyde[type], over: i === 0 ? 0 : gap }))
 
   return {
-    landscape, pad: luft, frame, stripe, stripeX, innerW, innerH, gap, showDesc, showId, logoIn,
+    landscape, pad: luft, frame, stripe, stripeX, hull, innerW, innerH, gap, showDesc, showId, logoIn,
     qrSide, qrSvg, qrMerker: pynt && !!theme.qrMarks, qrRamme: pynt && theme.qrFrame ? innslag : 0,
     textW, blokker,
   }
