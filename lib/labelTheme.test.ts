@@ -9,9 +9,11 @@ import {
 const NYE: LabelThemeId[] = [
   'bjelke', 'sperre', 'mork', 'kontur', 'minimal', 'teknisk',
   'skilt', 'stort', 'stripe', 'klipp', 'ramme', 'topp',
+  'svarthvitt', 'rodtopp', 'rodbunn', 'natt', 'klassisk', 'kutt', 'banner', 'millimeter',
+  'todelt', 'nederst', 'storqr', 'baand', 'prikk', 'qrramme', 'morkbjelke', 'rammeiramme',
 ]
 
-test('tolv nye design i tillegg til Standard og Hauge Maskin', () => {
+test('28 design i tillegg til Standard og Hauge Maskin', () => {
   assert.deepEqual(LABEL_THEMES.map(t => t.id), ['plain', 'hauge', ...NYE])
   assert.equal(new Set(LABEL_THEMES.map(t => t.name)).size, LABEL_THEMES.length)
 })
@@ -19,7 +21,7 @@ test('tolv nye design i tillegg til Standard og Hauge Maskin', () => {
 test('de nye designene bruker bare rødt, svart og hvitt', () => {
   for (const id of NYE) {
     const t = getTheme(id)
-    for (const farge of [t.accent, t.border]) {
+    for (const farge of [t.accent, t.border, t.badgeColor ?? null, t.bandRule ?? null]) {
       if (farge !== null) assert.ok([HM_RED, SVART, HVIT].includes(farge), `${id}: ${farge}`)
     }
     assert.notEqual(t.accent, null, `${id} må ha fast farge, ikke QR-kodens egen`)

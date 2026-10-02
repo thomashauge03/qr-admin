@@ -1,10 +1,11 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { planEtikett, type EtikettPlan } from './etikettPlan.ts'
+import { planEtikett, QR_RUTER, MIN_RUTE_MM, type EtikettPlan } from './etikettPlan.ts'
 import { LABEL_THEMES } from './labelTheme.ts'
-import { LABEL_SHEETS } from './labelSheets.ts'
+import { LABEL_SHEETS, kantVern } from './labelSheets.ts'
 
 const EPS = 1e-6
+const INGEN = { t: 0, r: 0, b: 0, l: 0 }
 
 // Alle etikettark, pluss miniatyren i designvelgeren
 const FORMATER = [...LABEL_SHEETS.map(s => ({ id: s.id, w: s.w, h: s.h })), { id: 'velger', w: 42, h: 58 }]
@@ -22,21 +23,54 @@ function alle(): [string, EtikettPlan][] {
   return ut
 }
 
-test('blokkene tar aldri mer høyde enn etiketten har', () => {
+/** Hjørnerutene på hvert ark — de som ligger mot to arkkanter samtidig */
+function hjørner(): [string, EtikettPlan, { t: number; r: number; b: number; l: number }][] {
+  const ut: [string, EtikettPlan, { t: number; r: number; b: number; l: number }][] = []
+  for (const s of LABEL_SHEETS) {
+    const n = s.cols * s.rows
+    const ruter = [0, s.cols - 1, n - s.cols, n - 1].filter((r, i, alle) => alle.indexOf(r) === i)
+    for (const i of ruter) {
+      const kant = kantVern(s, i)
+      for (const theme of LABEL_THEMES)
+        for (const logo of [true, false])
+          for (const hasInfo of [true, false]) {
+            const navn = `${theme.id} ${s.id} rute=${i} logo=${logo} info=${hasInfo}`
+            ut.push([navn, planEtikett({ w: s.w, h: s.h, theme, logo, showBadge: true, hasInfo, kant }), kant])
+          }
+    }
+  }
+  return ut
+}
+
+const passer = (navn: string, p: EtikettPlan) => {
+  const brukt = p.blokker.reduce((sum, b) => sum + b.over + b.h, 0)
+  assert.ok(brukt <= p.innerH + EPS, `${navn}: ${brukt.toFixed(2)} > ${p.innerH.toFixed(2)} mm`)
+  for (const b of p.blokker) assert.ok(b.h >= 0 && b.over >= 0, `${navn}: ${b.type} er negativ`)
+  assert.ok(p.qrSide <= p.innerH + EPS, `${navn}: QR høyere enn etiketten`)
+  const bredde = p.landscape ? p.qrSide + p.gap + p.textW : p.qrSide
+  assert.ok(bredde <= p.innerW + EPS, `${navn}: QR og tekst er bredere enn etiketten`)
+}
+
+test('blokkene tar aldri mer plass enn etiketten har', () => {
+  for (const [navn, p] of alle()) passer(navn, p)
+})
+
+test('QR-koden blir ikke presset for liten i forhold til etiketten', () => {
   for (const [navn, p] of alle()) {
-    const brukt = p.blokker.reduce((sum, b) => sum + b.over + b.h, 0)
-    assert.ok(brukt <= p.innerH + EPS, `${navn}: ${brukt.toFixed(2)} > ${p.innerH.toFixed(2)} mm`)
-    for (const b of p.blokker) assert.ok(b.h >= 0 && b.over >= 0, `${navn}: ${b.type} er negativ`)
+    const minst = Math.min(p.innerW, p.innerH) * 0.3
+    assert.ok(p.qrSide >= minst, `${navn}: QR ${p.qrSide.toFixed(1)} mm < ${minst.toFixed(1)} mm`)
   }
 })
 
-test('QR-koden holder seg innenfor rammen og blir ikke presset for liten', () => {
+test('QR-koden har minst 0,3 mm per rute på alle ark, med stillesonen regnet med', () => {
   for (const [navn, p] of alle()) {
-    assert.ok(p.qrSide <= p.innerH + EPS, `${navn}: QR høyere enn etiketten`)
-    const bredde = p.landscape ? p.qrSide + p.gap + p.textW : p.qrSide
-    assert.ok(bredde <= p.innerW + EPS, `${navn}: QR og tekst er bredere enn etiketten`)
-    const minst = Math.min(p.innerW, p.innerH) * 0.3
-    assert.ok(p.qrSide >= minst, `${navn}: QR ${p.qrSide.toFixed(1)} mm < ${minst.toFixed(1)} mm`)
+    if (navn.includes(' velger ')) continue
+    const rute = p.qrSvg / QR_RUTER
+    assert.ok(rute >= MIN_RUTE_MM - EPS, `${navn}: ${rute.toFixed(3)} mm per rute`)
+  }
+  for (const [navn, p] of hjørner()) {
+    const rute = p.qrSvg / QR_RUTER
+    assert.ok(rute >= MIN_RUTE_MM - EPS, `${navn}: ${rute.toFixed(3)} mm per rute`)
   }
 })
 
@@ -58,9 +92,56 @@ test('logoen havner der designet vil ha den, og bare når den er slått på', ()
 })
 
 test('ramme, sidestripe og luft er trukket fra før blokkene fordeles', () => {
-  const stripe = LABEL_THEMES.find(t => t.id === 'stripe')!
-  const p = planEtikett({ w: 105, h: 74.25, theme: stripe, logo: true, showBadge: true, hasInfo: false })
-  assert.ok(p.stripe > 0)
-  assert.ok(Math.abs(p.innerW - (105 - 2 * p.pad - 2 * p.frame - p.stripe)) < EPS)
-  assert.ok(Math.abs(p.innerH - (74.25 - 2 * p.pad - 2 * p.frame)) < EPS)
+  for (const [navn, p] of alle()) {
+    const [id, format] = navn.split(' ')
+    const f = FORMATER.find(x => x.id === format)!
+    const w = f.w - p.frame.l - p.frame.r - p.pad.l - p.pad.r - p.stripe - p.stripeX
+    const h = f.h - p.frame.t - p.frame.b - p.pad.t - p.pad.b
+    assert.ok(Math.abs(p.innerW - w) < EPS, `${navn}: bredde`)
+    assert.ok(Math.abs(p.innerH - h) < EPS, `${navn}: høyde`)
+    if (LABEL_THEMES.find(t => t.id === id)!.sideStripe) assert.ok(p.stripe > 0, navn)
+  }
+})
+
+test('innhold holder seg unna skriverens døde sone ved arkkanten', () => {
+  for (const [navn, p, kant] of hjørner()) {
+    passer(navn, p)
+    assert.ok(p.frame.t + p.pad.t >= kant.t - EPS, `${navn}: topp`)
+    assert.ok(p.frame.r + p.pad.r >= kant.r - EPS, `${navn}: høyre`)
+    assert.ok(p.frame.b + p.pad.b >= kant.b - EPS, `${navn}: bunn`)
+    assert.ok(p.frame.l + p.stripeX + p.pad.l >= kant.l - EPS, `${navn}: venstre`)
+  }
+})
+
+test('egne formater: alt får plass på alle størrelser fra 25 × 15 mm til helt A4', () => {
+  for (const w of [25, 38, 52.5, 70, 99.1, 105, 150, 190, 210])
+    for (const h of [15, 21.2, 29.7, 38.1, 57, 74.25, 99, 148.5, 210, 297])
+      for (const theme of LABEL_THEMES)
+        for (const logo of [true, false])
+          for (const hasInfo of [true, false]) {
+            const p = planEtikett({ w, h, theme, logo, showBadge: true, hasInfo })
+            passer(`${theme.id} ${w}×${h} logo=${logo} info=${hasInfo}`, p)
+          }
+})
+
+test('uten kant i sonen er planen den samme som før', () => {
+  const t = LABEL_THEMES[0]
+  const a = planEtikett({ w: 105, h: 74.25, theme: t, logo: true, showBadge: true, hasInfo: false })
+  const b = planEtikett({ w: 105, h: 74.25, theme: t, logo: true, showBadge: true, hasInfo: false, kant: INGEN })
+  assert.deepEqual(a, b)
+})
+
+test('«Nummer nederst» har nummerfeltet under navnet', () => {
+  const t = LABEL_THEMES.find(x => x.id === 'nederst')!
+  const p = planEtikett({ w: 105, h: 148.5, theme: t, logo: true, showBadge: true, hasInfo: false })
+  const typer = p.blokker.map(b => b.type)
+  assert.ok(typer.indexOf('badge') > typer.indexOf('name'), typer.join(','))
+  assert.ok(typer.indexOf('qr') < typer.indexOf('name'), typer.join(','))
+})
+
+test('design med bunnbånd har alltid en bunnrad, også uten logo og ID', () => {
+  for (const t of LABEL_THEMES.filter(x => x.footBand)) {
+    const p = planEtikett({ w: 52.5, h: 29.7, theme: t, logo: false, showBadge: true, hasInfo: false })
+    assert.ok(p.blokker.some(b => b.type === 'foot'), t.id)
+  }
 })

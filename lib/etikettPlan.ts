@@ -22,14 +22,37 @@ export interface Blokk {
   over: number
 }
 
+/** Et mål per side: topp, høyre, bunn, venstre */
+export interface Sider {
+  t: number
+  r: number
+  b: number
+  l: number
+}
+
+export const INGEN_KANT: Sider = { t: 0, r: 0, b: 0, l: 0 }
+
+/**
+ * QR-koden regnes som versjon 6, 41 × 41 ruter — det en UUID og et vanlig navn
+ * i JSON gir — pluss stillesonen på 4 ruter hver vei som QR-standarden
+ * (ISO/IEC 18004) krever. Stillesonen ligger inne i SVG-en, så den er med i
+ * målet uansett hva som står rundt koden.
+ */
+export const QR_RUTER = 41 + 2 * 4
+
+/** Minste rute som skannes sikkert med mobilkamera på kort hold */
+export const MIN_RUTE_MM = 0.3
+
 export interface EtikettPlan {
   landscape: boolean
-  /** Luft mellom rammen og innholdet */
-  pad: number
-  /** Rammetykkelsen */
-  frame: number
+  /** Luft mellom rammen og innholdet, per side */
+  pad: Sider
+  /** Rammetykkelsen per side */
+  frame: Sider
   /** Bredden på sidestripen, 0 uten */
   stripe: number
+  /** Hvor langt inn sidestripen er skjøvet for å holde seg unna arkkanten */
+  stripeX: number
   /** Plassen blokkene deler — uten ramme, luft og stripe */
   innerW: number
   innerH: number
@@ -39,7 +62,14 @@ export interface EtikettPlan {
   showId: boolean
   /** Hvor logoen står, null når den er slått av */
   logoIn: 'head' | 'foot' | null
+  /** Plassen QR-blokka har — med hjørnemerker eller ramme */
   qrSide: number
+  /** Selve QR-koden med stillesone */
+  qrSvg: number
+  /** Hjørnemerker rundt koden. Droppes når de ville gjort rutene for små. */
+  qrMerker: boolean
+  /** Tykkelsen på rammen rundt koden, 0 uten */
+  qrRamme: number
   /** Bredden på teksten — hele bredden stående, kolonnen ved siden av QR-en liggende */
   textW: number
   /** Stående: hele etiketten. Liggende: tekstkolonnen */
@@ -49,13 +79,18 @@ export interface EtikettPlan {
 const klem = (v: number, min: number, max: number) => Math.min(max, Math.max(min, v))
 
 /**
- * Rammetykkelse i mm. 0,4 er det tynneste en vanlig kontorskriver tegner som
- * en jevn strek; den tykke vokser med etiketten.
+ * Rammetykkelse i mm per side. 0,4 er det tynneste en vanlig kontorskriver
+ * tegner som en jevn strek; den tykke og den doble vokser med etiketten.
+ * Kuttemerkene ligger i lufta i hjørnene og tar ingen plass.
  */
-export function rammeMm(frame: LabelTheme['frame'], h: number): number {
-  if (frame === 'none') return 0
-  if (frame === 'thick') return klem(h * 0.016, 0.9, 2.2)
-  return 0.4
+export function rammeMm(frame: LabelTheme['frame'], h: number): Sider {
+  if (frame === 'none' || frame === 'corners') return { ...INGEN_KANT }
+  if (frame === 'bands') {
+    const bånd = klem(h * 0.04, 1.5, 7)
+    return { t: bånd, r: 0, b: bånd, l: 0 }
+  }
+  const v = frame === 'thick' || frame === 'double' ? klem(h * 0.016, 0.9, 2.2) : 0.4
+  return { t: v, r: v, b: v, l: v }
 }
 
 /** Rekkefølgen på blokkene — delt med de frie formatene, som ikke har fast høyde */
@@ -66,45 +101,71 @@ export function blokkRekkefolge(opt: {
   badge: boolean
   info: boolean
   foot: boolean
+  badgeLast?: boolean
 }): BlokkType[] {
+  const head = opt.head && 'head'
+  const badge = opt.badge && 'badge'
+  const foot = opt.foot && 'foot'
   const typer: (BlokkType | false)[] = opt.landscape
-    ? [opt.head && 'head', opt.badge && 'badge', 'name', opt.info && 'info', opt.foot && 'foot']
+    ? opt.badgeLast
+      ? [head, 'name', opt.info && 'info', badge, foot]
+      : [head, badge, 'name', opt.info && 'info', foot]
     : opt.hero
     // Som i Lagersystemet: nummeret og navnet over QR-en
-    ? [opt.head && 'head', opt.badge && 'badge', 'name', 'qr', opt.foot && 'foot']
-    : [opt.head && 'head', opt.badge && 'badge', 'qr', 'name', opt.foot && 'foot']
+    ? [head, badge, 'name', 'qr', foot]
+    : opt.badgeLast
+    ? [head, 'qr', 'name', badge, foot]
+    : [head, badge, 'qr', 'name', foot]
   return typer.filter((t): t is BlokkType => !!t)
 }
 
-export function planEtikett({ w, h, theme, logo, showBadge, hasInfo }: {
+export function planEtikett({ w, h, theme, logo, showBadge, hasInfo, kant = INGEN_KANT }: {
   w: number
   h: number
   theme: LabelTheme
   logo: boolean
   showBadge: boolean
   hasInfo: boolean
+  /** Hvor mye av etiketten som ligger i skriverens døde sone, per side — se kantVern */
+  kant?: Sider
 }): EtikettPlan {
-  const landscape = w > h * 1.15
+  // Nesten kvadratiske etiketter får også QR-en ved siden av teksten: stående
+  // ville koden fått det som er igjen under nummer, navn og bunnrad — på
+  // 99 × 93 mm bare 24 mm.
+  const landscape = w >= h * 0.95
   const pad0 = Math.min(4, Math.max(0.8, h * 0.055))
-  // Skiltet har en hvit linje innenfor kanten og trenger luft på begge sider av den
+  // Linja innenfor kanten trenger luft på begge sider av seg
   const pad = theme.innerLine ? pad0 * 1.5 : pad0
   const frame = rammeMm(theme.frame, h)
   const stripe = theme.sideStripe ? klem(w * 0.085, 2.5, 12) : 0
-  const innerW = w - 2 * pad - 2 * frame - stripe
-  const innerH = h - 2 * pad - 2 * frame
+  // Innholdet holdes unna skriverens døde sone. Rammen og bakgrunnen kan gå ut
+  // i den — de blir bare ikke printet helt ut — men tekst og QR må med.
+  const stripeX = stripe ? Math.max(0, kant.l - frame.l) : 0
+  const luft: Sider = {
+    t: Math.max(pad, kant.t - frame.t),
+    r: Math.max(pad, kant.r - frame.r),
+    b: Math.max(pad, kant.b - frame.b),
+    l: stripe ? pad : Math.max(pad, kant.l - frame.l),
+  }
+  const innerW = w - frame.l - frame.r - stripeX - stripe - luft.l - luft.r
+  const innerH = h - frame.t - frame.b - luft.t - luft.b
   const gap = innerH * 0.04
-  const showDesc = h >= 50
+  const showDesc = h >= 50 && !theme.qrFocus
   const showId = h >= 70
   const logoIn = logo ? theme.logoSlot : null
-  const showFoot = showId || logoIn === 'foot'
+  // Bunnbåndet er en del av designet og står også uten logo og ID
+  const showFoot = showId || logoIn === 'foot' || !!theme.footBand
   // Uten nummerfelt er det ikke noe nummer å løfte fram
   const hero = !!theme.hero && showBadge
 
   const headH = logoIn === 'head' ? innerH * (landscape ? 0.13 : 0.08) : 0
   // Nummerfeltets høyde i forhold til det vanlige. Bjelken over et stort nummer
-  // er smal; det stablede nummeret og sidestripens tall trenger mer.
+  // og streken over en stor QR er smale; stablet nummer, prikk og
+  // sidestripens tall trenger mer.
   const badgeAndel = hero ? 0.5
+    : theme.qrFocus ? 0.7
     : theme.badge === 'stack' ? 1.4
+    : theme.badge === 'dot' ? 1.25
     : theme.badge === 'number' ? 1.2
     : theme.badge === 'stripes' ? 1.1
     : 1
@@ -115,6 +176,7 @@ export function planEtikett({ w, h, theme, logo, showBadge, hasInfo }: {
 
   const rekkefolge = blokkRekkefolge({
     landscape, hero, head: headH > 0, badge: showBadge, info: hasInfo && landscape, foot: showFoot,
+    badgeLast: theme.badgeLast,
   })
   const mellomrom = gap * (rekkefolge.length - 1)
 
@@ -122,13 +184,14 @@ export function planEtikett({ w, h, theme, logo, showBadge, hasInfo }: {
   if (landscape) {
     // Brede etiketter får QR-en ved siden av teksten i stedet for over den —
     // ellers begrenser høyden QR-en til under halv størrelse.
-    qrSide = Math.max(4, Math.min(innerH, innerW * 0.5))
+    qrSide = Math.max(0, Math.min(innerH, innerW * (theme.qrFocus ? 0.6 : 0.5)))
     textW = Math.max(1, innerW - qrSide - gap)
     const rest = Math.max(0, innerH - headH - badgeH - footH - mellomrom)
     nameH = hasInfo ? rest * 0.45 : rest
     infoH = hasInfo ? rest * 0.55 : 0
   } else {
     const nameAndel = hero ? 0.22
+      : theme.qrFocus ? 0.14
       : (showDesc ? 0.28 : 0.2) * (theme.badge === 'stack' && showBadge ? 0.75 : 1)
     nameH = innerH * nameAndel
     const qrBudget = innerH - headH - badgeH - nameH - footH - mellomrom
@@ -137,13 +200,20 @@ export function planEtikett({ w, h, theme, logo, showBadge, hasInfo }: {
     textW = innerW
   }
 
+  // Hjørnemerker og ramme tar plass fra selve koden. Blir rutene da for små
+  // til å skannes, er det pynten som ryker, ikke koden.
+  const innslag = theme.qrMarks ? qrSide * 0.1 : theme.qrFrame ? klem(qrSide * 0.025, 0.4, 1.5) : 0
+  const pynt = innslag > 0 && (qrSide - 2 * innslag) / QR_RUTER >= MIN_RUTE_MM
+  const qrSvg = pynt ? qrSide - 2 * innslag : qrSide
+
   const høyde: Record<BlokkType, number> = {
     head: headH, badge: badgeH, qr: qrSide, name: nameH, info: infoH, foot: footH,
   }
   const blokker = rekkefolge.map((type, i) => ({ type, h: høyde[type], over: i === 0 ? 0 : gap }))
 
   return {
-    landscape, pad, frame, stripe, innerW, innerH, gap, showDesc, showId,
-    logoIn, qrSide, textW, blokker,
+    landscape, pad: luft, frame, stripe, stripeX, innerW, innerH, gap, showDesc, showId, logoIn,
+    qrSide, qrSvg, qrMerker: pynt && !!theme.qrMarks, qrRamme: pynt && theme.qrFrame ? innslag : 0,
+    textW, blokker,
   }
 }

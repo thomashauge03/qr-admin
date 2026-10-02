@@ -17,6 +17,8 @@ export type LabelThemeId =
   | 'plain' | 'hauge'
   | 'bjelke' | 'sperre' | 'mork' | 'kontur' | 'minimal' | 'teknisk'
   | 'skilt' | 'stort' | 'stripe' | 'klipp' | 'ramme' | 'topp'
+  | 'svarthvitt' | 'rodtopp' | 'rodbunn' | 'natt' | 'klassisk' | 'kutt' | 'banner' | 'millimeter'
+  | 'todelt' | 'nederst' | 'storqr' | 'baand' | 'prikk' | 'qrramme' | 'morkbjelke' | 'rammeiramme'
 
 export interface LabelTheme {
   id: LabelThemeId
@@ -29,8 +31,11 @@ export interface LabelTheme {
   border: string | null
   /** Bunnen på hele etiketten */
   surface: 'paper' | 'dark' | 'red'
-  /** Rammen rundt etiketten. Tykk ramme vokser med etiketten */
-  frame: 'thin' | 'thick' | 'dashed' | 'none'
+  /**
+   * Rammen rundt etiketten. Tykk og dobbel vokser med etiketten; «corners» er
+   * kuttemerker i hjørnene og «bands» er bånd bare oppe og nede.
+   */
+  frame: 'thin' | 'thick' | 'dashed' | 'double' | 'corners' | 'bands' | 'none'
   corners: 'round' | 'square'
   /**
    * Nummerfeltet — «UTSTYR NUMMER» og selve nummeret:
@@ -42,8 +47,12 @@ export interface LabelTheme {
    *  rule     ingen flate, bare en strek under
    *  stack    teksten over et stort nummer
    *  number   bare nummeret — teksten står i sidestripen
+   *  split    to felt: svart med teksten, farget med nummeret
+   *  dot      nummeret i en sirkel, teksten ved siden av
    */
-  badge: 'fill' | 'outline' | 'band' | 'stripes' | 'cells' | 'rule' | 'stack' | 'number'
+  badge: 'fill' | 'outline' | 'band' | 'stripes' | 'cells' | 'rule' | 'stack' | 'number' | 'split' | 'dot'
+  /** Farge på nummerfeltet når den skal være en annen enn `accent` */
+  badgeColor?: string
   /** Skrift på navn og nummer */
   type: 'sans' | 'heavy' | 'mono'
   /** Hvor HM-logoen står når den er slått på: bunnraden eller øverst */
@@ -54,12 +63,24 @@ export interface LabelTheme {
   qrMarks?: boolean
   /** Rød stripe langs venstre kant med «UTSTYR NUMMER» på høykant */
   sideStripe?: boolean
-  /** Hvit linje innenfor kanten, som på et skilt */
+  /** Linje innenfor kanten — hvit på farget bunn, i `accent` på papir */
   innerLine?: boolean
   /** Saks ved den stiplede klippekanten */
   scissors?: boolean
-  /** Rød strek under den svarte bjelken */
-  bandRule?: boolean
+  /** Strek i denne fargen under bjelken */
+  bandRule?: string
+  /** Nummerfeltet går helt ut til kanten (bjelken gjør det alltid) */
+  badgeBleed?: boolean
+  /** Farget felt nederst med logo og ID */
+  footBand?: boolean
+  /** Rutepapir i bakgrunnen */
+  pattern?: 'grid'
+  /** Nummerfeltet nederst, under navnet */
+  badgeLast?: boolean
+  /** Mest mulig plass til QR-koden: smalt nummerfelt, ingen beskrivelse */
+  qrFocus?: boolean
+  /** Ramme i `accent` rundt QR-koden */
+  qrFrame?: boolean
 }
 
 export const HM_RED = '#e40112'
@@ -143,7 +164,95 @@ export const LABEL_THEMES: LabelTheme[] = [
     id: 'topp', name: 'Svart topp', hint: 'Svart felt øverst, rød strek under',
     accent: SVART, border: SVART,
     surface: 'paper', frame: 'thin', corners: 'square', badge: 'band', type: 'heavy', logoSlot: 'foot',
-    bandRule: true,
+    bandRule: HM_RED,
+  },
+  {
+    id: 'svarthvitt', name: 'Svart-hvitt', hint: 'For skrivere uten farge',
+    accent: SVART, border: SVART,
+    surface: 'paper', frame: 'thin', corners: 'round', badge: 'fill', type: 'sans', logoSlot: 'foot',
+  },
+  {
+    id: 'rodtopp', name: 'Rød topp', hint: 'Rødt felt øverst, svart strek under',
+    accent: HM_RED, border: SVART,
+    surface: 'paper', frame: 'thin', corners: 'square', badge: 'band', type: 'heavy', logoSlot: 'foot',
+    bandRule: SVART,
+  },
+  {
+    id: 'rodbunn', name: 'Rød bunn', hint: 'Rødt felt nederst med logo',
+    accent: HM_RED, border: SVART, badgeColor: SVART,
+    surface: 'paper', frame: 'thin', corners: 'square', badge: 'rule', type: 'sans', logoSlot: 'foot',
+    footBand: true,
+  },
+  {
+    id: 'natt', name: 'Natt', hint: 'Svart med rød ramme — bruker mye blekk',
+    accent: HM_RED, border: HM_RED,
+    surface: 'dark', frame: 'thick', corners: 'round', badge: 'outline', type: 'sans', logoSlot: 'foot',
+  },
+  {
+    id: 'klassisk', name: 'Klassisk', hint: 'Dobbel svart ramme',
+    accent: HM_RED, border: SVART,
+    surface: 'paper', frame: 'double', corners: 'square', badge: 'fill', type: 'heavy', logoSlot: 'foot',
+  },
+  {
+    id: 'kutt', name: 'Kuttemerker', hint: 'Merker i hjørnene, ingen ramme',
+    accent: HM_RED, border: SVART,
+    surface: 'paper', frame: 'corners', corners: 'square', badge: 'rule', type: 'mono', logoSlot: 'foot',
+  },
+  {
+    id: 'banner', name: 'Banner', hint: 'Stort nummer i svart felt',
+    accent: SVART, border: SVART,
+    surface: 'paper', frame: 'thin', corners: 'square', badge: 'stack', type: 'sans', logoSlot: 'foot',
+    badgeBleed: true,
+  },
+  {
+    id: 'millimeter', name: 'Millimeter', hint: 'Rutepapir, som en arbeidstegning',
+    accent: SVART, border: SVART,
+    surface: 'paper', frame: 'thin', corners: 'square', badge: 'fill', type: 'sans', logoSlot: 'foot',
+    pattern: 'grid',
+  },
+  {
+    id: 'todelt', name: 'Todelt', hint: 'Svart tekstfelt, rødt nummerfelt',
+    accent: HM_RED, border: SVART,
+    surface: 'paper', frame: 'thin', corners: 'square', badge: 'split', type: 'heavy', logoSlot: 'foot',
+  },
+  {
+    id: 'nederst', name: 'Nummer nederst', hint: 'QR-koden øverst, nummeret under',
+    accent: HM_RED, border: SVART,
+    surface: 'paper', frame: 'thin', corners: 'round', badge: 'fill', type: 'sans', logoSlot: 'foot',
+    badgeLast: true,
+  },
+  {
+    id: 'storqr', name: 'Stor QR', hint: 'Størst mulig kode — skannes på avstand',
+    accent: HM_RED, border: SVART,
+    surface: 'paper', frame: 'thin', corners: 'round', badge: 'rule', type: 'sans', logoSlot: 'foot',
+    qrFocus: true,
+  },
+  {
+    id: 'baand', name: 'Rødt bånd', hint: 'Røde bånd oppe og nede',
+    accent: HM_RED, border: HM_RED, badgeColor: SVART,
+    surface: 'paper', frame: 'bands', corners: 'square', badge: 'rule', type: 'sans', logoSlot: 'foot',
+  },
+  {
+    id: 'prikk', name: 'Prikk', hint: 'Nummeret i en rød sirkel',
+    accent: HM_RED, border: SVART,
+    surface: 'paper', frame: 'thin', corners: 'round', badge: 'dot', type: 'sans', logoSlot: 'foot',
+  },
+  {
+    id: 'qrramme', name: 'QR-ramme', hint: 'Rød ramme rundt QR-koden',
+    accent: HM_RED, border: SVART, badgeColor: SVART,
+    surface: 'paper', frame: 'thin', corners: 'round', badge: 'outline', type: 'sans', logoSlot: 'foot',
+    qrFrame: true,
+  },
+  {
+    id: 'morkbjelke', name: 'Mørk bjelke', hint: 'Svart med rød bjelke — bruker mye blekk',
+    accent: HM_RED, border: null,
+    surface: 'dark', frame: 'none', corners: 'square', badge: 'band', type: 'heavy', logoSlot: 'foot',
+  },
+  {
+    id: 'rammeiramme', name: 'Ramme i ramme', hint: 'Svart ramme med rød linje innenfor',
+    accent: HM_RED, border: SVART,
+    surface: 'paper', frame: 'thin', corners: 'round', badge: 'fill', type: 'sans', logoSlot: 'foot',
+    innerLine: true,
   },
 ]
 

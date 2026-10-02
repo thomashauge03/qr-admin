@@ -1,8 +1,12 @@
 'use client'
 import { useRef, useState } from 'react'
 import { Category } from '@/types'
-import { LABEL_SHEETS, DEFAULT_SHEET, perSheet } from '@/lib/labelSheets'
+import {
+  LABEL_SHEETS, DEFAULT_SHEET, SKRIVERKANT, perSheet, kantVern,
+  lagEgetArk, lesEgetArk, lagreEgetArk, type EgetArkMål,
+} from '@/lib/labelSheets'
 import { getTheme, lesUtskriftValg, lagreUtskriftValg, nettleserLager, type UtskriftValg } from '@/lib/labelTheme'
+import { planEtikett, QR_RUTER, MIN_RUTE_MM } from '@/lib/etikettPlan'
 import { ETIKETT_FONTER, skrivUtNårKlar } from '@/lib/utskrift'
 import StickerCard from './StickerCard'
 import DesignVelger from './DesignVelger'
@@ -20,6 +24,24 @@ const EKSEMPEL: Category = {
   qr_type: null, qr_data: null, info_lines: null, folder_id: null, created_at: '',
 }
 
+const GRUPPER = [
+  { gruppe: 'kant', navn: 'A4 delt kant i kant' },
+  { gruppe: 'avery', navn: 'Avery' },
+  { gruppe: 'zweckform', navn: 'Zweckform' },
+] as const
+
+// Feltene for eget format, i den rekkefølgen målene står på pakken
+const EGNE_FELT: { k: keyof EgetArkMål; navn: string; heltall?: boolean }[] = [
+  { k: 'w', navn: 'Bredde' },
+  { k: 'h', navn: 'Høyde' },
+  { k: 'cols', navn: 'Bortover', heltall: true },
+  { k: 'rows', navn: 'Nedover', heltall: true },
+  { k: 'marginTop', navn: 'Toppmarg' },
+  { k: 'marginLeft', navn: 'Venstremarg' },
+  { k: 'gapX', navn: 'Mellomrom bortover' },
+  { k: 'gapY', navn: 'Mellomrom nedover' },
+]
+
 export default function PrintAllModal({ categories, onClose }: Props) {
   const printRef = useRef<HTMLDivElement>(null)
 
@@ -34,13 +56,37 @@ export default function PrintAllModal({ categories, onClose }: Props) {
   const [showList,  setShowList]  = useState(false)
   // Alle er valgt til å begynne med
   const [selected,  setSelected]  = useState<Set<string>>(() => new Set(categories.map(c => c.id)))
+  // Målene for eget format huskes til neste gang
+  const [egetMål,   setEgetMål]   = useState<EgetArkMål>(() => lesEgetArk(nettleserLager()))
 
-  const sheet    = LABEL_SHEETS.find(s => s.id === sheetId) || DEFAULT_SHEET
+  const eget     = lagEgetArk(egetMål)
+  const egetFeil = sheetId === 'egen' && 'feil' in eget ? eget.feil : null
+  const sheet    = sheetId === 'egen'
+    ? ('ark' in eget ? eget.ark : DEFAULT_SHEET)
+    : LABEL_SHEETS.find(s => s.id === sheetId) || DEFAULT_SHEET
   const override = useColor ? color : null
   const per      = perSheet(sheet)
 
   const chosen = categories.filter(c => selected.has(c.id))
   const pageCount = Math.ceil(chosen.length / per)
+  const kanPrinte = chosen.length > 0 && !egetFeil
+
+  // Etiketter som ligger mot arkkanten får ekstra luft der skriveren ikke når
+  const kantSone = Array.from({ length: per }, (_, i) => kantVern(sheet, i, offsetX, offsetY))
+    .some(k => k.t > 0 || k.r > 0 || k.b > 0 || k.l > 0)
+  // Blir QR-rutene for små på dette arket med dette designet, sies det fra her
+  // og ikke først når skanneren ikke leser koden
+  const prøve = planEtikett({
+    w: sheet.w, h: sheet.h, theme: getTheme(valg.design), logo: valg.logo, showBadge, hasInfo: false,
+  })
+  const qrRute = prøve.qrSvg / QR_RUTER
+  const forLitenQr = qrRute < MIN_RUTE_MM
+
+  const endreEget = (k: keyof EgetArkMål, verdi: number) => {
+    const nytt = { ...egetMål, [k]: verdi }
+    setEgetMål(nytt)
+    lagreEgetArk(nytt, nettleserLager())
+  }
 
   const endreValg = (neste: Partial<UtskriftValg>) => {
     const nytt = { ...valg, ...neste }
@@ -62,7 +108,7 @@ export default function PrintAllModal({ categories, onClose }: Props) {
 
   const handlePrint = () => {
     const content = printRef.current
-    if (!content || chosen.length === 0) return
+    if (!content || !kanPrinte) return
     const printWindow = window.open('', '_blank')
     if (!printWindow) return
     printWindow.document.write(`
@@ -137,7 +183,8 @@ export default function PrintAllModal({ categories, onClose }: Props) {
               <StickerCard category={cat}
                 widthMm={sheet.w} heightMm={sheet.h}
                 showBadge={showBadge} overrideColor={override}
-                theme={valg.design} logo={valg.logo} />
+                theme={valg.design} logo={valg.logo}
+                kant={kantVern(sheet, i, offsetX, offsetY)} />
             </div>
           ))}
         </div>
@@ -236,21 +283,60 @@ export default function PrintAllModal({ categories, onClose }: Props) {
             {sectionLabel('ETIKETTARK')}
             <select value={sheetId} onChange={e => setSheetId(e.target.value)}
               style={{ width: '100%', borderRadius: 10, fontFamily: 'Inter, sans-serif', fontSize: '0.875rem' }}>
-              <optgroup label="A4 delt kant i kant">
-                {LABEL_SHEETS.filter(s => s.id.startsWith('a4-')).map(s => (
-                  <option key={s.id} value={s.id}>{s.name}</option>
-                ))}
-              </optgroup>
-              <optgroup label="Avery / Zweckform">
-                {LABEL_SHEETS.filter(s => !s.id.startsWith('a4-')).map(s => (
-                  <option key={s.id} value={s.id}>{s.name}</option>
-                ))}
+              {GRUPPER.map(g => (
+                <optgroup key={g.gruppe} label={g.navn}>
+                  {LABEL_SHEETS.filter(s => s.gruppe === g.gruppe).map(s => (
+                    <option key={s.id} value={s.id}>{s.name}</option>
+                  ))}
+                </optgroup>
+              ))}
+              <optgroup label="Andre ark">
+                <option value="egen">Eget format — skriv inn målene</option>
               </optgroup>
             </select>
-            <p style={{ fontSize: '0.72rem', color: 'var(--muted)', marginTop: 6 }}>
-              Etikett {sheet.w} × {sheet.h} mm — {sheet.cols} × {sheet.rows} per ark.
-              Ta en testutskrift på vanlig papir og hold den mot etikettarket før du printer.
-            </p>
+
+            {sheetId === 'egen' && (
+              <div style={{ marginTop: 10 }}>
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                  {EGNE_FELT.map(f => (
+                    <label key={f.k} style={{ fontSize: '0.7rem', color: 'var(--muted)' }}>
+                      {f.navn}{f.heltall ? '' : ' (mm)'}
+                      <input type="number" min={f.heltall ? 1 : 0} step={f.heltall ? 1 : 0.1}
+                        value={Number.isFinite(egetMål[f.k]) ? egetMål[f.k] : ''}
+                        onChange={e => endreEget(f.k, e.target.value === '' ? NaN : Number(e.target.value))}
+                        style={{ display: 'block', width: '100%', borderRadius: 10, fontSize: '0.875rem', marginTop: 3 }} />
+                    </label>
+                  ))}
+                </div>
+                <p style={{ fontSize: '0.72rem', color: 'var(--muted)', marginTop: 6 }}>
+                  Målene står på pakken, eller mål et ark med linjal: etikettens størrelse, hvor mange
+                  bortover og nedover, avstanden fra arkkanten til første etikett og mellomrommet mellom dem.
+                </p>
+              </div>
+            )}
+
+            {egetFeil ? (
+              <p role="alert" style={{ fontSize: '0.75rem', color: 'var(--danger)', marginTop: 6 }}>{egetFeil}</p>
+            ) : (
+              <p style={{ fontSize: '0.72rem', color: 'var(--muted)', marginTop: 6 }}>
+                Etikett {String(Math.round(sheet.w * 100) / 100).replace('.', ',')} × {String(Math.round(sheet.h * 100) / 100).replace('.', ',')} mm
+                {' '}— {sheet.cols} × {sheet.rows} per ark.
+                Skriv ut i 100 % («Faktisk størrelse») med marger satt til «Ingen» — ellers krymper
+                skriveren arket, og etikettene havner feil. Ta en testutskrift på vanlig papir først.
+              </p>
+            )}
+            {!egetFeil && kantSone && (
+              <p style={{ fontSize: '0.72rem', color: 'var(--muted)', marginTop: 4 }}>
+                Etikettene mot arkkanten får ekstra luft der: skrivere printer ikke de ytterste
+                {' '}{String(SKRIVERKANT).replace('.', ',')} mm, så QR-kode og tekst holdes innenfor.
+              </p>
+            )}
+            {!egetFeil && forLitenQr && (
+              <p role="alert" style={{ fontSize: '0.75rem', color: 'var(--danger)', marginTop: 4 }}>
+                QR-koden blir for liten på så små etiketter ({String(Math.round(qrRute * 100) / 100).replace('.', ',')} mm
+                per rute) og kan bli vanskelig å skanne. Velg større etiketter eller «Stor QR».
+              </p>
+            )}
           </div>
 
           {/* Finjustering */}
@@ -318,14 +404,20 @@ export default function PrintAllModal({ categories, onClose }: Props) {
 
         {/* Forhåndsvisning — nedskalert, men markupen som printes er i full størrelse */}
         <div className="px-8 py-5" style={{ backgroundColor: 'var(--gray-100)' }}>
-          <div style={{ width: A4_W * scale, height: (A4_H * pages.length + 16 * (pages.length - 1)) * scale,
-            overflow: 'hidden', margin: '0 auto' }}>
-            <div style={{ transform: `scale(${scale})`, transformOrigin: 'top left', width: A4_W }}>
-              <div ref={printRef} style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-                {sheetMarkup}
+          {egetFeil ? (
+            <p style={{ fontSize: '0.85rem', color: 'var(--muted)', textAlign: 'center', padding: '24px 0' }}>
+              Forhåndsvisningen kommer når målene for eget format går opp.
+            </p>
+          ) : (
+            <div style={{ width: A4_W * scale, height: (A4_H * pages.length + 16 * (pages.length - 1)) * scale,
+              overflow: 'hidden', margin: '0 auto' }}>
+              <div style={{ transform: `scale(${scale})`, transformOrigin: 'top left', width: A4_W }}>
+                <div ref={printRef} style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+                  {sheetMarkup}
+                </div>
               </div>
             </div>
-          </div>
+          )}
         </div>
         </div>
 
@@ -339,13 +431,13 @@ export default function PrintAllModal({ categories, onClose }: Props) {
           </button>
           <button
             onClick={handlePrint}
-            disabled={chosen.length === 0}
+            disabled={!kanPrinte}
             className="flex-1 rounded-xl py-3 text-sm font-medium transition-all hover:opacity-90 flex items-center justify-center gap-2"
             style={{ backgroundColor: 'var(--black)', color: 'var(--white)', fontFamily: 'Syne, sans-serif',
-              fontWeight: 600, opacity: chosen.length === 0 ? 0.4 : 1,
-              cursor: chosen.length === 0 ? 'not-allowed' : 'pointer' }}
+              fontWeight: 600, opacity: kanPrinte ? 1 : 0.4,
+              cursor: kanPrinte ? 'pointer' : 'not-allowed' }}
           >
-            <span>🖨</span> {chosen.length === 0 ? 'Ingen valgt' : `Print ${pageCount} ark`}
+            <span>🖨</span> {chosen.length === 0 ? 'Ingen valgt' : egetFeil ? 'Sjekk målene' : `Print ${pageCount} ark`}
           </button>
         </div>
       </div>

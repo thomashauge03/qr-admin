@@ -1,4 +1,5 @@
 'use client'
+import { useEffect, useRef } from 'react'
 import { Category } from '@/types'
 import { LABEL_THEMES, LabelThemeId, getTheme } from '@/lib/labelTheme'
 import StickerCard from './StickerCard'
@@ -26,9 +27,38 @@ const SKALA = 0.42
  */
 export default function DesignVelger({ category, themeId, onTheme, logo, onLogo, overrideColor }: Props) {
   const valgt = getTheme(themeId)
+  const stripe = useRef<HTMLDivElement>(null)
+
+  // Med 30 design er stripa mange skjermbredder lang. Et vanlig musehjul
+  // ruller den sidelengs — React legger hjul-lyttere som passive, så
+  // preventDefault krever en egen lytter.
+  useEffect(() => {
+    const el = stripe.current
+    if (!el) return
+    const hjul = (e: WheelEvent) => {
+      if (Math.abs(e.deltaX) > Math.abs(e.deltaY) || el.scrollWidth <= el.clientWidth) return
+      const før = el.scrollLeft
+      el.scrollLeft += e.deltaY
+      // Ved enden av stripa får siden rulle videre som vanlig
+      if (el.scrollLeft !== før) e.preventDefault()
+    }
+    el.addEventListener('wheel', hjul, { passive: false })
+    return () => el.removeEventListener('wheel', hjul)
+  }, [])
+
+  // Designet man valgte sist kan ligge langt ute i stripa — vis det når
+  // vinduet åpnes. Ikke ved hvert klikk: da ville stripa hoppet under fingeren.
+  useEffect(() => {
+    const boks = stripe.current
+    const el = boks?.querySelector<HTMLElement>('[aria-pressed="true"]')
+    if (!boks || !el) return
+    const fraVenstre = el.getBoundingClientRect().left - boks.getBoundingClientRect().left
+    boks.scrollLeft += fraVenstre - (boks.clientWidth - el.clientWidth) / 2
+  }, [])
+
   return (
     <div>
-      <div className="flex gap-1 overflow-x-auto" style={{ paddingBottom: 6, scrollSnapType: 'x proximity' }}>
+      <div ref={stripe} className="flex gap-1 overflow-x-auto" style={{ paddingBottom: 6, scrollSnapType: 'x proximity' }}>
         {LABEL_THEMES.map(t => {
           const on = t.id === themeId
           return (
