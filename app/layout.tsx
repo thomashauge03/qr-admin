@@ -29,7 +29,13 @@ export const viewport: Viewport = {
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="no">
+    <html
+      lang="no"
+      /* Lukkeren setter data-hm-lukkar på <html> før React tar over sida.
+         Uten denne regnes attributtet som et avvik. Gjelder bare <html>
+         selv, ikke det som ligger inni. */
+      suppressHydrationWarning
+    >
       <body>
         {/* Først i body, så platene er malt før noe annet rekker å vises. */}
         <Lukkar />
