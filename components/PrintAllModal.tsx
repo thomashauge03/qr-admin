@@ -2,7 +2,7 @@
 import { useRef, useState } from 'react'
 import { Category, buildQRValue } from '@/types'
 import {
-  LABEL_SHEETS, DEFAULT_SHEET, SKRIVERKANT, perSheet, kantVern,
+  LABEL_SHEETS, DEFAULT_SHEET, SKRIVERKANT, perSheet, kantVern, utskrivbar,
   lagEgetArk, lesEgetArk, lagreEgetArk, type EgetArkMål,
 } from '@/lib/labelSheets'
 import { getTheme, lesUtskriftValg, lagreUtskriftValg, nettleserLager, type UtskriftValg } from '@/lib/labelTheme'
@@ -71,15 +71,15 @@ export default function PrintAllModal({ categories, onClose }: Props) {
   const pageCount = Math.ceil(chosen.length / per)
   const kanPrinte = chosen.length > 0 && !egetFeil
 
-  // Etiketter som ligger mot arkkanten får ekstra luft der skriveren ikke når
-  const kanter = Array.from({ length: per }, (_, i) => kantVern(sheet, i, offsetX, offsetY))
-  const kantSone = kanter.some(k => k.t > 0 || k.r > 0 || k.b > 0 || k.l > 0)
+  // Etiketter som ligger mot arkkanten tegnes innenfor kanten skriveren ikke når
+  const flater = Array.from({ length: per }, (_, i) => utskrivbar(sheet, i, offsetX, offsetY))
+  const kantSone = flater.some(f => f.w < sheet.w || f.h < sheet.h)
   // Blir QR-rutene for små på dette arket med dette designet, sies det fra her
   // og ikke først når skanneren ikke leser koden. Det lengste innholdet gir
   // flest og minst ruter, og etiketten mot arkkanten den minste koden — så
   // det er de som avgjør.
-  const minsteQr = Math.min(...kanter.map(kant => planEtikett({
-    w: sheet.w, h: sheet.h, theme: getTheme(valg.design), logo: valg.logo, showBadge, hasInfo: false, kant,
+  const minsteQr = Math.min(...flater.map(f => planEtikett({
+    w: f.w, h: f.h, theme: getTheme(valg.design), logo: valg.logo, showBadge, hasInfo: false,
   }).qrSide))
   const lengst = chosen.map(buildQRValue).reduce((a, b) => (new TextEncoder().encode(b).length > new TextEncoder().encode(a).length ? b : a), '')
   const qrRute = velgNivå(lengst || buildQRValue(EKSEMPEL), minsteQr).ruteMm
@@ -114,7 +114,7 @@ export default function PrintAllModal({ categories, onClose }: Props) {
     if (!content || !kanPrinte) return
     const printWindow = window.open('', '_blank')
     if (!printWindow) return
-    printWindow.document.write(arkDokument(content.innerHTML))
+    printWindow.document.write(arkDokument(content.innerHTML, SKRIVERKANT))
     printWindow.document.close()
     printWindow.focus()
     // Vent på fontene og logoene før print-dialogen åpnes
@@ -297,14 +297,14 @@ export default function PrintAllModal({ categories, onClose }: Props) {
               <p style={{ fontSize: '0.72rem', color: 'var(--muted)', marginTop: 6 }}>
                 Etikett {String(Math.round(sheet.w * 100) / 100).replace('.', ',')} × {String(Math.round(sheet.h * 100) / 100).replace('.', ',')} mm
                 {' '}— {sheet.cols} × {sheet.rows} per ark.
-                Skriv ut i 100 % («Faktisk størrelse») med marger satt til «Ingen» — ellers krymper
-                skriveren arket, og etikettene havner feil. Ta en testutskrift på vanlig papir først.
+                Skriv ut med skala «Standard» (100 %) — da treffer etikettene arket, uansett hva
+                margene står på. Ta en testutskrift på vanlig papir først.
               </p>
             )}
             {!egetFeil && kantSone && (
               <p style={{ fontSize: '0.72rem', color: 'var(--muted)', marginTop: 4 }}>
-                Etikettene mot arkkanten får ekstra luft der: skrivere printer ikke de ytterste
-                {' '}{String(SKRIVERKANT).replace('.', ',')} mm, så QR-kode og tekst holdes innenfor.
+                Skriveren når ikke de ytterste {String(SKRIVERKANT).replace('.', ',')} mm av arket.
+                Etikettene langs kanten tegnes derfor innenfor, så ramme og farge kommer med.
               </p>
             )}
             {!egetFeil && forLitenQr && (

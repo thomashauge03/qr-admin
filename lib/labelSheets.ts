@@ -34,11 +34,13 @@ export interface LabelSheet {
 export const A4 = { w: 210, h: 297 }
 
 /**
- * Den ytterste kanten av arket som en vanlig kontorskriver ikke printer på.
- * Laser ligger typisk på 4,2 mm, blekk på 3–5 mm. QR-kode og tekst på
- * etiketter som ligger mot arkkanten, holdes innenfor denne.
+ * Den ytterste kanten av arket som skriveren ikke printer på. Laser ligger
+ * typisk på 4,2 mm og blekk på 3–5 mm; standardskriveren (KONICA MINOLTA
+ * bizhub C224e) når ikke de ytterste 5,0 mm til venstre og øverst og 5,08 mm
+ * til høyre. Etiketter som ligger mot arkkanten, tegnes innenfor denne, og
+ * utskriften bruker den som sidemarg — se arkDokument i lib/utskrift.ts.
  */
-export const SKRIVERKANT = 4.5
+export const SKRIVERKANT = 5.5
 
 export const LABEL_SHEETS: LabelSheet[] = [
   // ---- A4 delt kant i kant (ingen mellomrom) ----
@@ -85,8 +87,8 @@ export const perSheet = (s: LabelSheet) => s.cols * s.rows
 
 /**
  * Hvor mye av etiketten i rute `i` som ligger i skriverens døde sone, per side.
- * 0 når etiketten ligger trygt innenfor; ellers antall mm innholdet må holde
- * seg unna kanten. Justeringen flytter etikettene, så den regnes med.
+ * 0 når etiketten ligger trygt innenfor; ellers antall mm etiketten må trekkes
+ * inn fra kanten. Justeringen flytter etikettene, så den regnes med.
  */
 export function kantVern(s: LabelSheet, i: number, offsetX = 0, offsetY = 0) {
   const venstre = s.marginLeft + (i % s.cols) * s.pitchX + offsetX
@@ -98,6 +100,16 @@ export function kantVern(s: LabelSheet, i: number, offsetX = 0, offsetY = 0) {
     b: sone(A4.h - (topp + s.h)),
     l: sone(venstre),
   }
+}
+
+/**
+ * Delen av etiketten i rute `i` som skriveren faktisk når, i mm fra etikettens
+ * øvre venstre hjørne. Etiketter mot arkkanten tegnes bare her — ellers kutter
+ * skriveren rammen og fargen der den ikke når ut. De andre fyller hele etiketten.
+ */
+export function utskrivbar(s: LabelSheet, i: number, offsetX = 0, offsetY = 0) {
+  const k = kantVern(s, i, offsetX, offsetY)
+  return { x: k.l, y: k.t, w: s.w - k.l - k.r, h: s.h - k.t - k.b }
 }
 
 // ── Eget format ─────────────────────────────────────────────────────────────

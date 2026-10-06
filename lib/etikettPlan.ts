@@ -84,8 +84,6 @@ export interface EtikettPlan {
   frame: Sider
   /** Bredden på sidestripen, 0 uten */
   stripe: number
-  /** Hvor langt inn sidestripen er skjøvet for å holde seg unna arkkanten */
-  stripeX: number
   /** Høyden som er satt av til hullet på en hengelapp, øverst i lufta. 0 uten. */
   hull: number
   /** Plassen blokkene deler — uten ramme, luft og stripe */
@@ -116,17 +114,19 @@ const klem = (v: number, min: number, max: number) => Math.min(max, Math.max(min
 /**
  * Rammetykkelse i mm per side. 0,4 er det tynneste en vanlig kontorskriver
  * tegner som en jevn strek; den tykke og den doble vokser med etiketten.
- * Kuttemerkene ligger i lufta i hjørnene og tar ingen plass.
+ * Kuttemerkene ligger i lufta i hjørnene og tar ingen plass. Bånd og ekstra
+ * tykke rammer går ned til 1 mm på de minste etikettene — tykkere ville tatt
+ * høyden QR-koden trenger.
  */
 export function rammeMm(frame: LabelTheme['frame'], h: number): Sider {
   if (frame === 'none' || frame === 'corners') return { ...INGEN_KANT }
   if (frame === 'bands') {
-    const bånd = klem(h * 0.04, 1.5, 7)
+    const bånd = klem(h * 0.04, 1, 7)
     return { t: bånd, r: 0, b: bånd, l: 0 }
   }
   // Varselstripene trenger bredde for å synes som striper, ikke grå strek
   if (frame === 'heavy' || frame === 'hazard') {
-    const v = klem(h * 0.035, 1.5, 6)
+    const v = klem(h * 0.035, 1, 6)
     return { t: v, r: v, b: v, l: v }
   }
   const v = frame === 'thick' || frame === 'double' ? klem(h * 0.016, 0.9, 2.2) : 0.4
@@ -159,41 +159,56 @@ export function blokkRekkefolge(opt: {
   return typer.filter((t): t is BlokkType => !!t)
 }
 
-export function planEtikett({ w, h, theme, logo, showBadge, hasInfo, kant = INGEN_KANT }: {
+interface PlanValg {
   w: number
   h: number
+  /**
+   * Høyden på hele ruta, når etiketten tegnes mindre mot arkkanten. Hva som
+   * vises (beskrivelse, ID) avgjøres av den, så alle etikettene på et ark viser
+   * det samme.
+   */
+  celleH?: number
   theme: LabelTheme
   logo: boolean
   showBadge: boolean
   hasInfo: boolean
-  /** Hvor mye av etiketten som ligger i skriverens døde sone, per side — se kantVern */
-  kant?: Sider
-}): EtikettPlan {
+}
+
+/**
+ * `w` × `h` er den delen av etiketten som tegnes. Ligger etiketten mot
+ * arkkanten, er det bare delen skriveren når — se utskrivbar i labelSheets.
+ */
+export function planEtikett(valg: PlanValg): EtikettPlan {
+  const plan = lagPlan(valg, true)
+  // Under 25 mm høyde er det ikke plass til både hullet på hengelappen og en
+  // QR-kode som kan skannes — da er det hullet som ryker
+  if (plan.hull > 0 && valg.h < 25 && plan.qrSvg / QR_RUTER < MIN_RUTE_MM) {
+    const uten = lagPlan(valg, false)
+    if (uten.qrSvg > plan.qrSvg) return uten
+  }
+  return plan
+}
+
+function lagPlan({ w, h, celleH = h, theme, logo, showBadge, hasInfo }: PlanValg, medHull: boolean): EtikettPlan {
   // Nesten kvadratiske etiketter får også QR-en ved siden av teksten: stående
   // ville koden fått det som er igjen under nummer, navn og bunnrad — på
   // 99 × 93 mm bare 24 mm.
   const landscape = w >= h * 0.95
-  const pad0 = Math.min(4, Math.max(0.8, h * 0.055))
+  // Lufta følger den korteste siden: på en smal, stående lapp ville luft etter
+  // høyden tatt bredden QR-koden trenger
+  const pad0 = Math.min(4, Math.max(0.8, Math.min(w, h) * 0.055))
   // Linja innenfor kanten trenger luft på begge sider av seg
   const pad = theme.innerLine ? pad0 * 1.5 : pad0
   const frame = rammeMm(theme.frame, h)
   const stripe = theme.sideStripe ? klem(w * 0.085, 2.5, 12) : 0
-  // Innholdet holdes unna skriverens døde sone. Rammen og bakgrunnen kan gå ut
-  // i den — de blir bare ikke printet helt ut — men tekst og QR må med.
-  const stripeX = stripe ? Math.max(0, kant.l - frame.l) : 0
   // Hengelappen har hullet over innholdet, i en egen sone øverst
-  const hull = theme.hull ? klem(h * 0.1, 3, 10) : 0
-  const luft: Sider = {
-    t: Math.max(pad, kant.t - frame.t) + hull,
-    r: Math.max(pad, kant.r - frame.r),
-    b: Math.max(pad, kant.b - frame.b),
-    l: stripe ? pad : Math.max(pad, kant.l - frame.l),
-  }
-  const innerW = w - frame.l - frame.r - stripeX - stripe - luft.l - luft.r
+  const hull = theme.hull && medHull ? klem(h * 0.1, 3, 10) : 0
+  const luft: Sider = { t: pad + hull, r: pad, b: pad, l: pad }
+  const innerW = w - frame.l - frame.r - stripe - luft.l - luft.r
   const innerH = h - frame.t - frame.b - luft.t - luft.b
   const gap = innerH * 0.04
-  const showDesc = h >= 50 && !theme.qrFocus
-  const showId = h >= 70
+  const showDesc = celleH >= 50 && !theme.qrFocus
+  const showId = celleH >= 70
   const logoIn = logo ? theme.logoSlot : null
   // Bunnbåndet er en del av designet og står også uten logo og ID
   const showFoot = showId || logoIn === 'foot' || !!theme.footBand
@@ -277,7 +292,7 @@ export function planEtikett({ w, h, theme, logo, showBadge, hasInfo, kant = INGE
   const blokker = rekkefolge.map((type, i) => ({ type, h: høyde[type], over: i === 0 ? 0 : gap }))
 
   return {
-    landscape, pad: luft, frame, stripe, stripeX, hull, innerW, innerH, gap, showDesc, showId, logoIn,
+    landscape, pad: luft, frame, stripe, hull, innerW, innerH, gap, showDesc, showId, logoIn,
     qrSide, qrSvg, qrMerker: pynt && !!theme.qrMarks, qrRamme: pynt && theme.qrFrame ? innslag : 0,
     textW, blokker,
   }

@@ -1,7 +1,7 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import {
-  LABEL_SHEETS, A4, SKRIVERKANT, kantVern, lagEgetArk, lesEgetArk, lagreEgetArk, STANDARD_EGET,
+  LABEL_SHEETS, A4, SKRIVERKANT, kantVern, utskrivbar, lagEgetArk, lesEgetArk, lagreEgetArk, STANDARD_EGET,
   type LabelSheet,
 } from './labelSheets.ts'
 
@@ -56,10 +56,43 @@ test('de vanlige Zweckform- og Avery-arkene som manglet, finnes', () => {
 test('kantvern: etiketter mot arkkanten får skriverens døde sone, de andre ingenting', () => {
   assert.deepEqual(kantVern(ark('a4-8'), 0), { t: SKRIVERKANT, r: 0, b: 0, l: SKRIVERKANT })
   assert.deepEqual(kantVern(ark('a4-8'), 7), { t: 0, r: SKRIVERKANT, b: SKRIVERKANT, l: 0 })
-  assert.deepEqual(kantVern(ark('l7165'), 0), { t: 0, r: 0, b: 0, l: 0 })
-  // Justering mot kanten skyver etiketten inn i sonen
-  const v = kantVern(ark('l7165'), 0, -1, 0)
-  assert.ok(v.l > 0 && v.l < 1, `venstre ${v.l}`)
+  // En etikett midt på arket
+  assert.deepEqual(kantVern(ark('a4-40'), 5), { t: 0, r: 0, b: 0, l: 0 })
+  // Justering mot kanten skyver etiketten lenger inn i sonen
+  const før = kantVern(ark('l7165'), 0)
+  const etter = kantVern(ark('l7165'), 0, -1, 0)
+  assert.ok(Math.abs(etter.l - før.l - 1) < EPS, `venstre ${før.l} → ${etter.l}`)
+})
+
+test('skriverkanten dekker standardskriveren, som ikke når de ytterste 5,0–5,08 mm', () => {
+  // KONICA MINOLTA bizhub C224e: 5,00 venstre og topp, 5,08 høyre, 4,91 bunn
+  assert.ok(SKRIVERKANT >= 5.08 + 0.3, `${SKRIVERKANT} mm`)
+})
+
+test('etiketter mot arkkanten tegnes innenfor det skriveren når, de andre fyller hele etiketten', () => {
+  for (const s of LABEL_SHEETS) {
+    for (let i = 0; i < s.cols * s.rows; i++) {
+      const venstre = s.marginLeft + (i % s.cols) * s.pitchX
+      const topp = s.marginTop + Math.floor(i / s.cols) * s.pitchY
+      const f = utskrivbar(s, i)
+      const navn = `${s.id} rute ${i}`
+      // Hele den tegnede etiketten ligger der skriveren når
+      assert.ok(venstre + f.x >= SKRIVERKANT - EPS && topp + f.y >= SKRIVERKANT - EPS, navn)
+      assert.ok(venstre + f.x + f.w <= A4.w - SKRIVERKANT + EPS, navn)
+      assert.ok(topp + f.y + f.h <= A4.h - SKRIVERKANT + EPS, navn)
+      // Sider som ikke ligger mot arkkanten, følger stansen
+      if (venstre >= SKRIVERKANT) assert.equal(f.x, 0, navn)
+      if (topp >= SKRIVERKANT) assert.equal(f.y, 0, navn)
+      if (A4.w - venstre - s.w >= SKRIVERKANT) assert.ok(Math.abs(f.x + f.w - s.w) < EPS, navn)
+      if (A4.h - topp - s.h >= SKRIVERKANT) assert.ok(Math.abs(f.y + f.h - s.h) < EPS, navn)
+    }
+  }
+  // 8 per ark: hjørneetiketten krymper på de to sidene mot kanten
+  assert.deepEqual(utskrivbar(ark('a4-8'), 0), { x: SKRIVERKANT, y: SKRIVERKANT, w: 105 - SKRIVERKANT, h: 74.25 - SKRIVERKANT })
+  // Avery L7165 har marger som er store nok på toppen, men ikke helt på sidene
+  const avery = utskrivbar(ark('l7165'), 0)
+  assert.equal(avery.y, 0)
+  assert.ok(Math.abs(avery.x - (SKRIVERKANT - 4.65)) < EPS, `${avery.x}`)
 })
 
 test('egendefinert ark: gyldige mål gir et ark, ugyldige gir en forklaring', () => {
