@@ -84,6 +84,8 @@ export interface EtikettPlan {
   frame: Sider
   /** Bredden på sidestripen, 0 uten */
   stripe: number
+  /** Hvor langt teksten i sidestripen er skjøvet inn fra arkkanten — fargen går helt ut */
+  stripeX: number
   /** Høyden som er satt av til hullet på en hengelapp, øverst i lufta. 0 uten. */
   hull: number
   /** Plassen blokkene deler — uten ramme, luft og stripe */
@@ -162,22 +164,14 @@ export function blokkRekkefolge(opt: {
 interface PlanValg {
   w: number
   h: number
-  /**
-   * Høyden på hele ruta, når etiketten tegnes mindre mot arkkanten. Hva som
-   * vises (beskrivelse, ID) avgjøres av den, så alle etikettene på et ark viser
-   * det samme.
-   */
-  celleH?: number
   theme: LabelTheme
   logo: boolean
   showBadge: boolean
   hasInfo: boolean
+  /** Hvor mye av etiketten som ligger i skriverens døde sone, per side — se kantVern */
+  kant?: Sider
 }
 
-/**
- * `w` × `h` er den delen av etiketten som tegnes. Ligger etiketten mot
- * arkkanten, er det bare delen skriveren når — se utskrivbar i labelSheets.
- */
 export function planEtikett(valg: PlanValg): EtikettPlan {
   const plan = lagPlan(valg, true)
   // Under 25 mm høyde er det ikke plass til både hullet på hengelappen og en
@@ -189,7 +183,7 @@ export function planEtikett(valg: PlanValg): EtikettPlan {
   return plan
 }
 
-function lagPlan({ w, h, celleH = h, theme, logo, showBadge, hasInfo }: PlanValg, medHull: boolean): EtikettPlan {
+function lagPlan({ w, h, theme, logo, showBadge, hasInfo, kant = INGEN_KANT }: PlanValg, medHull: boolean): EtikettPlan {
   // Nesten kvadratiske etiketter får også QR-en ved siden av teksten: stående
   // ville koden fått det som er igjen under nummer, navn og bunnrad — på
   // 99 × 93 mm bare 24 mm.
@@ -201,14 +195,23 @@ function lagPlan({ w, h, celleH = h, theme, logo, showBadge, hasInfo }: PlanValg
   const pad = theme.innerLine ? pad0 * 1.5 : pad0
   const frame = rammeMm(theme.frame, h)
   const stripe = theme.sideStripe ? klem(w * 0.085, 2.5, 12) : 0
+  // Etiketten går helt ut til arkkanten, også der skriveren ikke når — rammen
+  // og bakgrunnen blir bare ikke printet helt ut. Tekst og QR må med, så de
+  // holdes unna skriverens døde sone.
+  const stripeX = stripe ? Math.max(0, kant.l - frame.l) : 0
   // Hengelappen har hullet over innholdet, i en egen sone øverst
   const hull = theme.hull && medHull ? klem(h * 0.1, 3, 10) : 0
-  const luft: Sider = { t: pad + hull, r: pad, b: pad, l: pad }
-  const innerW = w - frame.l - frame.r - stripe - luft.l - luft.r
+  const luft: Sider = {
+    t: Math.max(pad, kant.t - frame.t) + hull,
+    r: Math.max(pad, kant.r - frame.r),
+    b: Math.max(pad, kant.b - frame.b),
+    l: stripe ? pad : Math.max(pad, kant.l - frame.l),
+  }
+  const innerW = w - frame.l - frame.r - stripeX - stripe - luft.l - luft.r
   const innerH = h - frame.t - frame.b - luft.t - luft.b
   const gap = innerH * 0.04
-  const showDesc = celleH >= 50 && !theme.qrFocus
-  const showId = celleH >= 70
+  const showDesc = h >= 50 && !theme.qrFocus
+  const showId = h >= 70
   const logoIn = logo ? theme.logoSlot : null
   // Bunnbåndet er en del av designet og står også uten logo og ID
   const showFoot = showId || logoIn === 'foot' || !!theme.footBand
@@ -292,7 +295,7 @@ function lagPlan({ w, h, celleH = h, theme, logo, showBadge, hasInfo }: PlanValg
   const blokker = rekkefolge.map((type, i) => ({ type, h: høyde[type], over: i === 0 ? 0 : gap }))
 
   return {
-    landscape, pad: luft, frame, stripe, hull, innerW, innerH, gap, showDesc, showId, logoIn,
+    landscape, pad: luft, frame, stripe, stripeX, hull, innerW, innerH, gap, showDesc, showId, logoIn,
     qrSide, qrSvg, qrMerker: pynt && !!theme.qrMarks, qrRamme: pynt && theme.qrFrame ? innslag : 0,
     textW, blokker,
   }

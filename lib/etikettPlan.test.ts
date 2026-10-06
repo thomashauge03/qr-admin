@@ -2,9 +2,10 @@ import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { planEtikett, qrRuter, velgNivå, QR_RUTER, MIN_RUTE_MM, type EtikettPlan } from './etikettPlan.ts'
 import { LABEL_THEMES } from './labelTheme.ts'
-import { LABEL_SHEETS, SKRIVERKANT, utskrivbar } from './labelSheets.ts'
+import { LABEL_SHEETS, SKRIVERKANT, kantVern } from './labelSheets.ts'
 
 const EPS = 1e-6
+const INGEN = { t: 0, r: 0, b: 0, l: 0 }
 
 // Alle etikettark, pluss miniatyren i designvelgeren
 const FORMATER = [...LABEL_SHEETS.map(s => ({ id: s.id, w: s.w, h: s.h })), { id: 'velger', w: 42, h: 58 }]
@@ -23,21 +24,21 @@ function alle(): [string, EtikettPlan][] {
 }
 
 /**
- * Hjørnerutene på hvert ark — de som ligger mot to arkkanter samtidig. Der
- * tegnes etiketten bare på delen skriveren når, så den er mindre enn ruta.
+ * Hjørnerutene på hvert ark — de som ligger mot to arkkanter samtidig. Etiketten
+ * går helt ut, men innholdet må holde seg unna kanten skriveren ikke når.
  */
-function hjørner(): [string, EtikettPlan][] {
-  const ut: [string, EtikettPlan][] = []
+function hjørner(): [string, EtikettPlan, { t: number; r: number; b: number; l: number }][] {
+  const ut: [string, EtikettPlan, { t: number; r: number; b: number; l: number }][] = []
   for (const s of LABEL_SHEETS) {
     const n = s.cols * s.rows
     const ruter = [0, s.cols - 1, n - s.cols, n - 1].filter((r, i, alle) => alle.indexOf(r) === i)
     for (const i of ruter) {
-      const f = utskrivbar(s, i)
+      const kant = kantVern(s, i)
       for (const theme of LABEL_THEMES)
         for (const logo of [true, false])
           for (const hasInfo of [true, false]) {
             const navn = `${theme.id} ${s.id} rute=${i} logo=${logo} info=${hasInfo}`
-            ut.push([navn, planEtikett({ w: f.w, h: f.h, celleH: s.h, theme, logo, showBadge: true, hasInfo })])
+            ut.push([navn, planEtikett({ w: s.w, h: s.h, theme, logo, showBadge: true, hasInfo, kant }), kant])
           }
     }
   }
@@ -97,7 +98,7 @@ test('ramme, sidestripe og luft er trukket fra før blokkene fordeles', () => {
   for (const [navn, p] of alle()) {
     const [id, format] = navn.split(' ')
     const f = FORMATER.find(x => x.id === format)!
-    const w = f.w - p.frame.l - p.frame.r - p.pad.l - p.pad.r - p.stripe
+    const w = f.w - p.frame.l - p.frame.r - p.pad.l - p.pad.r - p.stripe - p.stripeX
     const h = f.h - p.frame.t - p.frame.b - p.pad.t - p.pad.b
     assert.ok(Math.abs(p.innerW - w) < EPS, `${navn}: bredde`)
     assert.ok(Math.abs(p.innerH - h) < EPS, `${navn}: høyde`)
@@ -105,20 +106,13 @@ test('ramme, sidestripe og luft er trukket fra før blokkene fordeles', () => {
   }
 })
 
-test('etikettene i arkhjørnene får plass til alt på delen skriveren når', () => {
-  for (const [navn, p] of hjørner()) passer(navn, p)
-})
-
-test('alle etikettene på et ark viser det samme, også de som tegnes mindre mot arkkanten', () => {
-  const t = LABEL_THEMES[0]
-  for (const s of LABEL_SHEETS) {
-    const hel = planEtikett({ w: s.w, h: s.h, theme: t, logo: true, showBadge: true, hasInfo: false })
-    for (let i = 0; i < s.cols * s.rows; i++) {
-      const f = utskrivbar(s, i)
-      const p = planEtikett({ w: f.w, h: f.h, celleH: s.h, theme: t, logo: true, showBadge: true, hasInfo: false })
-      assert.equal(p.showDesc, hel.showDesc, `${s.id} rute ${i}: beskrivelse`)
-      assert.equal(p.showId, hel.showId, `${s.id} rute ${i}: ID`)
-    }
+test('innhold holder seg unna skriverens døde sone ved arkkanten', () => {
+  for (const [navn, p, kant] of hjørner()) {
+    passer(navn, p)
+    assert.ok(p.frame.t + p.pad.t >= kant.t - EPS, `${navn}: topp`)
+    assert.ok(p.frame.r + p.pad.r >= kant.r - EPS, `${navn}: høyre`)
+    assert.ok(p.frame.b + p.pad.b >= kant.b - EPS, `${navn}: bunn`)
+    assert.ok(p.frame.l + p.stripeX + p.pad.l >= kant.l - EPS, `${navn}: venstre`)
   }
 })
 
@@ -137,18 +131,26 @@ test('egne formater: QR-rutene blir minst 0,3 mm på vanlige etikettstørrelser,
   // Dymo, Brother, fraktetiketter og smale stående lapper — mål folk skriver inn under «Eget format»
   const mål = [[40, 30], [50, 25], [57, 32], [62, 29], [89, 28], [89, 36], [70, 50], [100, 70], [102, 76],
     [148, 105], [102, 152], [54, 101], [50, 80], [40, 70], [30, 60]]
+  // Midt på arket, og i hjørnet der skriverkanten tar en bit av to sider
+  const HJØRNE = { t: SKRIVERKANT, r: 0, b: 0, l: SKRIVERKANT }
   for (const [w, h] of mål)
-    // Midt på arket, og i hjørnet der skriverkanten tar en bit av to sider
-    for (const sone of [0, SKRIVERKANT])
+    for (const kant of [INGEN, HJØRNE])
       for (const theme of LABEL_THEMES)
         for (const logo of [true, false])
           for (const hasInfo of [true, false]) {
-            const p = planEtikett({ w: w - sone, h: h - sone, celleH: h, theme, logo, showBadge: true, hasInfo })
-            const navn = `${theme.id} ${w}×${h} sone=${sone} logo=${logo} info=${hasInfo}`
+            const p = planEtikett({ w, h, theme, logo, showBadge: true, hasInfo, kant })
+            const navn = `${theme.id} ${w}×${h} kant=${kant.t} logo=${logo} info=${hasInfo}`
             passer(navn, p)
             const rute = p.qrSvg / QR_RUTER
             assert.ok(rute >= MIN_RUTE_MM - EPS, `${navn}: ${rute.toFixed(3)} mm per rute`)
           }
+})
+
+test('uten kant i sonen er planen den samme som før', () => {
+  const t = LABEL_THEMES[0]
+  const a = planEtikett({ w: 105, h: 74.25, theme: t, logo: true, showBadge: true, hasInfo: false })
+  const b = planEtikett({ w: 105, h: 74.25, theme: t, logo: true, showBadge: true, hasInfo: false, kant: INGEN })
+  assert.deepEqual(a, b)
 })
 
 test('«Nummer nederst» har nummerfeltet under navnet', () => {

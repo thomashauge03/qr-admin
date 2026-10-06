@@ -223,11 +223,6 @@ export default function StickerCard({
   // Etikettmodus: høyden er låst av cellen på arket, så plassen fordeles
   // eksplisitt i mm — se lib/etikettPlan.ts
   const isLabel = !fullPage && !!heightMm
-  // Etiketter mot arkkanten tegnes bare på delen skriveren når — ellers kutter
-  // skriveren rammen og fargen der den ikke når ut. Se utskrivbar i labelSheets.
-  const harKant = isLabel && (kant.t > 0 || kant.r > 0 || kant.b > 0 || kant.l > 0)
-  const flateW = (widthMm ?? 60) - (isLabel ? kant.l + kant.r : 0)
-  const flateH = isLabel ? heightMm! - kant.t - kant.b : 0
 
   const infoLines = (category.info_lines || []).filter(l => l.label || l.value)
   const nr = category.shelf_number
@@ -263,7 +258,7 @@ export default function StickerCard({
   // Infolinjer som ville blitt for små til å leses, tas bort, og planen lages
   // på nytt uten dem — da får QR-en og navnet plassen i stedet.
   const lagPlan = (medInfo: boolean) =>
-    planEtikett({ w: flateW, h: flateH, celleH: heightMm, theme, logo, showBadge, hasInfo: medInfo })
+    planEtikett({ w: widthMm ?? 60, h: heightMm!, theme, logo, showBadge, hasInfo: medInfo, kant })
   const infoMål = (p: EtikettPlan) => {
     const colW = p.landscape ? p.textW : Math.max(1, p.innerW - p.qrSide - p.gap)
     const infoH = p.blokker.find(b => b.type === 'info')?.h ?? 0
@@ -287,7 +282,7 @@ export default function StickerCard({
   }
   const landscape = plan?.landscape ?? false
   const baseMm = widthMm ?? 60
-  const cardMm = isPage ? 190 : isLabel ? flateW : hasInfo ? Math.round(baseMm * 1.5) : baseMm
+  const cardMm = isPage ? 190 : isLabel ? baseMm : hasInfo ? Math.round(baseMm * 1.5) : baseMm
   // Fri modus (enkelt klistremerke uten fast høyde) skaleres med bredden
   const k = cardMm / 60
   const grunnPad = isPage ? 14 : Math.max(1.5, Math.round(6 * k * 10) / 10)
@@ -304,6 +299,7 @@ export default function StickerCard({
     return like(theme.frame === 'thick' || theme.frame === 'double' ? (isPage ? 3 : 1.4 * k) : isPage ? 1.06 : 0.53)
   })()
   const stripe = plan ? plan.stripe : theme.sideStripe ? (isPage ? 16 : 5 * k) : 0
+  const stripeX = plan ? plan.stripeX : 0
   const innerW = plan ? plan.innerW : cardMm - frame.l - frame.r - stripe - luft.l - luft.r
   const textW = plan ? plan.textW : innerW
   const gap = plan ? plan.gap : isPage ? 10 : grunnPad / 2
@@ -900,7 +896,8 @@ export default function StickerCard({
           {line.value && (
             <div
               style={{
-                ...NUM,
+                // Vanlige sifre, som verdien er målt med
+                ...NUM_STOR,
                 fontSize: font.infoValue,
                 fontFamily: SANS,
                 fontWeight: 600,
@@ -986,7 +983,9 @@ export default function StickerCard({
       <div style={{ width: '100%', minWidth: 0 }}>
         <p
           style={{
-            ...NUM,
+            // Vanlige sifre i Inter: tabellsiffer er bredere enn canvas-målingen,
+            // og da brakk et navn som «Volvo 1» til to linjer og ble kuttet
+            ...(NM.mono ? NUM : NUM_STOR),
             margin: 0,
             fontSize: font.name,
             fontFamily: NM.mono ? MONO : SANS,
@@ -1116,8 +1115,9 @@ export default function StickerCard({
     if (!stripe || !showBadge) return null
     // Stående tekst langs hele høyden. Den frie etiketten har ingen fast høyde,
     // så der anslås den ut fra bredden. Teksten står midt på, så begge endene
-    // holdes unna rammen oppe og nede.
-    const lengde = (isLabel ? flateH : isPage ? 277 : innerW * 1.2) - 2 * Math.max(frame.t, frame.b)
+    // holdes unna rammen og skriverens døde sone oppe og nede.
+    const ender = isLabel ? Math.max(frame.t, frame.b, kant.t, kant.b) : Math.max(frame.t, frame.b)
+    const lengde = (isLabel ? heightMm! : isPage ? 277 : innerW * 1.2) - 2 * ender
     for (const t of [BADGE_TEXT, BADGE_TEXT_SHORT]) {
       const f = Math.min(stripe * 0.5, (lengde * 0.8) / textW1(t, 700, 0.2))
       if (f >= 1.2) return { t, f }
@@ -1125,7 +1125,7 @@ export default function StickerCard({
     return null
   })()
   // Samme grunnluft som planen: etter den korteste siden
-  const grunnLinje = isLabel ? Math.min(4, Math.max(0.8, Math.min(flateW, flateH) * 0.055)) : grunnPad
+  const grunnLinje = isLabel ? Math.min(4, Math.max(0.8, Math.min(baseMm, heightMm!) * 0.055)) : grunnPad
   const innset = grunnLinje * 0.55
   const saksMm = Math.min(luft.t * 0.85, isPage ? 7 : 5)
   // Kuttemerker: L-er i hjørnene, i lufta utenfor innholdet
@@ -1133,7 +1133,7 @@ export default function StickerCard({
   const merkeAvstand = Math.min(pad * 0.25, isPage ? 3 : 1)
   const merkeStrek = `${mm(isPage ? 0.7 : 0.35)} solid ${frameColor}`
   // Rutepapir: ruter som passer etiketten — ikke større enn 5 mm, ikke mindre enn 2
-  const rute = isPage ? 5 : isLabel ? klem(flateH * 0.07, 2, 5) : klem(cardMm * 0.07, 2, 5)
+  const rute = isPage ? 5 : isLabel ? klem(heightMm! * 0.07, 2, 5) : klem(cardMm * 0.07, 2, 5)
   // Hullet på hengelappen: stiplet sirkel midt i sonen som er satt av øverst
   const hullD = hull * 0.62
   // Varselrammens striper følger rammetykkelsen
@@ -1143,7 +1143,9 @@ export default function StickerCard({
     <>
       {stripe > 0 && (
         <div style={{
-          position: 'absolute', left: 0, top: 0, bottom: 0, width: mm(stripe), backgroundColor: accent,
+          // Fargen går helt ut til kanten; teksten står i delen skriveren når
+          position: 'absolute', left: 0, top: 0, bottom: 0, width: mm(stripeX + stripe), backgroundColor: accent,
+          paddingLeft: mm(stripeX), boxSizing: 'border-box',
           display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden',
         }}>
           {stripeTekst && (
@@ -1215,9 +1217,9 @@ export default function StickerCard({
     justifyContent: isPage ? ((bleed || v === 'tab') && førsteBlokk === 'badge' ? 'flex-start' : 'center') : undefined,
     gap: landscape ? mm(gap) : undefined,
     width: mm(cardMm),
-    height: isPage ? '277mm' : isLabel ? mm(flateH) : undefined,
+    height: isPage ? '277mm' : isLabel ? mm(heightMm!) : undefined,
     overflow: 'hidden',
-    padding: `${mm(luft.t)} ${mm(luft.r)} ${mm(luft.b)} ${mm(luft.l + stripe)}`,
+    padding: `${mm(luft.t)} ${mm(luft.r)} ${mm(luft.b)} ${mm(luft.l + stripe + stripeX)}`,
     background: bakgrunn,
     borderTop: strek(frame.t),
     borderRight: strek(frame.r),
@@ -1242,32 +1244,25 @@ export default function StickerCard({
   ))
 
   // Liggende etikett: QR til venstre, all tekst i en kolonne til høyre
-  const kort = landscape ? (
-    <div className="sticker-card" style={cardStyle}>
-      {dekor}
-      {qrRadEl(0)}
-      <div style={{
-        display: 'flex', flexDirection: 'column', flex: 1, minWidth: 0,
-        height: '100%', justifyContent: 'center',
-      }}>
-        {innhold}
+  if (landscape) {
+    return (
+      <div className="sticker-card" style={cardStyle}>
+        {dekor}
+        {qrRadEl(0)}
+        <div style={{
+          display: 'flex', flexDirection: 'column', flex: 1, minWidth: 0,
+          height: '100%', justifyContent: 'center',
+        }}>
+          {innhold}
+        </div>
       </div>
-    </div>
-  ) : (
+    )
+  }
+
+  return (
     <div className="sticker-card" style={cardStyle}>
       {dekor}
       {innhold}
     </div>
   )
-
-  // Mot arkkanten: hele etiketten tar ruta si, men designet tegnes innenfor
-  // kanten skriveren ikke når
-  return harKant ? (
-    <div style={{
-      boxSizing: 'border-box', width: mm(widthMm ?? 60), height: mm(heightMm!),
-      padding: `${mm(kant.t)} ${mm(kant.r)} ${mm(kant.b)} ${mm(kant.l)}`,
-    }}>
-      {kort}
-    </div>
-  ) : kort
 }

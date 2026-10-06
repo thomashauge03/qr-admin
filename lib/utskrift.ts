@@ -19,15 +19,15 @@ const escape = (tekst: string) =>
  * med etikettene plassert absolutt i `.cell`-er. `innhold` er forhåndsvisningens
  * HTML — det som printes er nøyaktig det som vises.
  *
- * `marg` er skriverkanten. Ber siden om marg 0, gir Chrome med marger på
- * «Standard» siden likevel skriverens egen kant (std::max i Chromiums
- * PageSetup) og krymper hele arket for å få det inn — på standardskriveren til
- * 95 %, så etikettene bommer på arket. Med marg minst like stor som kanten
- * skjer ikke det. Ved utskrift fyller arket det sideområdet Chrome faktisk gir
- * det, og cellene flyttes like mye som margen, så de står der etikettene er
- * stanset — med «Standard» og med «Ingen».
+ * Siden ber om marg 0, så etikettene går helt ut til arkkanten. Med marger på
+ * «Standard» gir Chrome likevel siden skriverens egen kant (std::max i
+ * Chromiums PageSetup) — et ark på 210 mm ville da blitt krympet inn i det
+ * som er igjen, på standardskriveren til 95 %, og bommet på etikettene. Derfor
+ * fyller arket ved utskrift bare det sideområdet Chrome faktisk gir det, og
+ * cellene flyttes like mye som kanten: de står der etikettene er stanset, og
+ * det skriveren ikke når, blir kuttet — med «Standard» og med «Ingen».
  */
-export function arkDokument(innhold: string, marg: number): string {
+export function arkDokument(innhold: string): string {
   return `
       <html>
         <head>
@@ -50,7 +50,7 @@ export function arkDokument(innhold: string, marg: number): string {
             .page:last-child { page-break-after: auto; }
             .cell { position: absolute; }
             .sticker-card { break-inside: avoid; page-break-inside: avoid; }
-            @page { size: A4 portrait; margin: ${marg}mm; }
+            @page { size: A4 portrait; margin: 0; }
             @media print {
               .page { width: 100vw !important; height: 100vh !important; }
               .cell { margin-left: calc((100vw - 210mm) / 2); margin-top: calc((100vh - 297mm) / 2); }
