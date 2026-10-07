@@ -222,6 +222,9 @@ export default function CategoryForm({ category, onSave, onClose }: Props) {
             {qrType === 'url' && (
               <div>{label('URL')}
                 <input type="url" value={qrData.url || ''} onChange={e => set('url', e.target.value)} placeholder="https://eksempel.no" />
+                <p className="mt-1.5" style={{ fontSize: '0.75rem', color: 'var(--muted)', lineHeight: 1.5 }}>
+                  Etiketten slår opp lenka når den skannes. Bytter du den her, følger printede etiketter med.
+                </p>
               </div>
             )}
             {qrType === 'text' && (

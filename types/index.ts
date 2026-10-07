@@ -1,4 +1,6 @@
-export type QRType = 'shop' | 'url' | 'text' | 'email' | 'phone' | 'sms' | 'wifi' | 'location'
+import { videresendingsadresse } from '@/lib/videresending'
+
+export type QRType ='shop' | 'url' | 'text' | 'email' | 'phone' | 'sms' | 'wifi' | 'location'
 
 export interface QRData {
   type: QRType
@@ -53,7 +55,9 @@ export function buildQRValue(category: Category): string {
   const data = category.qr_data
   const type = category.qr_type || 'shop'
 
-  if (type === 'url' && data?.url) return data.url
+  // Lenka slås opp ved skanning, så den kan byttes etter at etiketten er printet.
+  // Eksempelet i designvelgeren har ingen ekte id og får lenka direkte.
+  if (type === 'url' && data?.url) return videresendingsadresse(category.id) ?? data.url
   if (type === 'text' && data?.text) return data.text
   if (type === 'email' && data?.email) {
     const params = new URLSearchParams()
