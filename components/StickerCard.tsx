@@ -2,10 +2,10 @@
 
 import { Fragment, useEffect, useState, type CSSProperties, type ReactNode } from 'react'
 import { QRCodeSVG } from 'qrcode.react'
-import { Category, buildQRValue } from '@/types'
-import { LabelThemeId, getTheme, tekstPå, lesbarFarge, SVART, HVIT } from '@/lib/labelTheme'
+import { Category, InfoLine, buildQRValue } from '@/types'
+import { LabelThemeId, getTheme, tekstPå, lesbarFarge, synligStrek, SVART, HVIT } from '@/lib/labelTheme'
 import {
-  planEtikett, blokkRekkefolge, velgNivå, INGEN_KANT, MIN_RUTE_MM, QR_RUTER,
+  planEtikett, blokkRekkefolge, velgNivå, beholdInfo, INGEN_KANT, MIN_RUTE_MM, QR_RUTER,
   type BlokkType, type EtikettPlan, type Sider,
 } from '@/lib/etikettPlan'
 import HaugeMaskinLogo, { LOGO_RATIO } from './HaugeMaskinLogo'
@@ -224,15 +224,15 @@ export default function StickerCard({
   // eksplisitt i mm — se lib/etikettPlan.ts
   const isLabel = !fullPage && !!heightMm
 
-  const infoLines = (category.info_lines || []).filter(l => l.label || l.value)
+  const alleInfo = (category.info_lines || []).filter(l => l.label || l.value).slice(0, theme.maksInfo)
   const nr = category.shelf_number
-  const longestInfoValue = infoLines.reduce((a, l) => (l.value.length > a.length ? l.value : a), '')
 
   // ── Farger ───────────────────────────────────────────────────────────────
   // En valgt fellesfarge går foran designet, som igjen går foran QR-kodens egen
   const accent = overrideColor || theme.accent || category.color || SVART
   const badgeAccent = overrideColor || theme.badgeColor || accent
-  const frameColor = overrideColor || theme.border || theme.accent || category.color || SVART
+  // Arket er hvitt uansett design, så en hvit ramme forsvinner — den blir grå
+  const frameColor = synligStrek(overrideColor || theme.border || theme.accent || category.color || SVART)
   const påAccent = tekstPå(accent)
   const påBadge = tekstPå(badgeAccent)
   const papir = theme.surface === 'paper'
@@ -248,6 +248,10 @@ export default function StickerCard({
   // Tekst i nummerfeltets farge rett på bunnen: blir den for svak, tar
   // etikettens tekstfarge over, og fargen sitter igjen i streken rundt
   const feltTekst = lesbarFarge(badgeAccent, bg, ink)
+  // Designene der nummerfeltet er en flate eller en kant i fargen — ikke der
+  // fargen bare er tekst eller en prikk
+  const feltForsvinner = synligStrek(badgeAccent, bg) !== badgeAccent &&
+    ['fill', 'band', 'tab', 'stack', 'split', 'square', 'cells', 'outline', 'stamp'].includes(theme.badge)
   // Skillestreker: svakt i rammefargen på Standard, grått på designene med faste farger
   const linjeBase = theme.accent ? SVART : frameColor
   const linje = (alfa: string) => (papir ? `${linjeBase}${alfa}` : mørk ? 'rgba(255,255,255,0.22)' : ink)
@@ -255,31 +259,34 @@ export default function StickerCard({
   const tegningStrek = papir ? SVART : ink
 
   // ── Mål ──────────────────────────────────────────────────────────────────
-  // Infolinjer som ville blitt for små til å leses, tas bort, og planen lages
-  // på nytt uten dem — da får QR-en og navnet plassen i stedet.
+  // Infolinjer som ville blitt for små til å leses, tas bort bakfra. Ryker
+  // alle, lages planen på nytt uten infoliste — da får QR-en og navnet plassen.
   const lagPlan = (medInfo: boolean) =>
     planEtikett({ w: widthMm ?? 60, h: heightMm!, theme, logo, showBadge, hasInfo: medInfo, kant })
-  const infoMål = (p: EtikettPlan) => {
+  const infoMål = (p: EtikettPlan, linjer: InfoLine[]) => {
     const colW = p.landscape ? p.textW : Math.max(1, p.innerW - p.qrSide - p.gap)
     const infoH = p.blokker.find(b => b.type === 'info')?.h ?? 0
-    const linjeH = (p.landscape ? infoH : p.qrSide) / Math.max(1, infoLines.length)
+    const linjeH = (p.landscape ? infoH : p.qrSide) / Math.max(1, linjer.length)
     const innhold = Math.max(0.5, linjeH - p.gap * 1.5)
+    const lengst = linjer.reduce((a, l) => (l.value.length > a.length ? l.value : a), '')
     return {
       colW,
       label: Math.min(innhold * 0.3, colW * 0.12),
-      value: fitMm(innhold * 0.48, colW, longestInfoValue, 600),
+      value: fitMm(innhold * 0.48, colW, lengst, 600),
     }
   }
-  let plan: EtikettPlan | null = isLabel ? lagPlan(infoLines.length > 0) : null
-  let hasInfo = infoLines.length > 0
-  if (plan && hasInfo) {
-    const m = infoMål(plan)
-    const harEtikett = infoLines.some(l => l.label)
-    if (m.value < MIN_INFO_VERDI || (harEtikett && m.label < MIN_INFO_ETIKETT)) {
-      plan = lagPlan(false)
-      hasInfo = false
-    }
+  let plan: EtikettPlan | null = isLabel ? lagPlan(alleInfo.length > 0) : null
+  let infoLines = alleInfo
+  if (plan && alleInfo.length > 0) {
+    const medInfo = plan
+    infoLines = beholdInfo(alleInfo, linjer => {
+      const m = infoMål(medInfo, linjer)
+      const harEtikett = linjer.some(l => l.label)
+      return m.value >= MIN_INFO_VERDI && (!harEtikett || m.label >= MIN_INFO_ETIKETT)
+    })
+    if (infoLines.length === 0) plan = lagPlan(false)
   }
+  const hasInfo = infoLines.length > 0
   const landscape = plan?.landscape ?? false
   const baseMm = widthMm ?? 60
   const cardMm = isPage ? 190 : isLabel ? baseMm : hasInfo ? Math.round(baseMm * 1.5) : baseMm
@@ -346,7 +353,7 @@ export default function StickerCard({
     : { w: 600 as Vekt, t: 0, mono: false, upper: false, lh: 1.18 }
 
   // ── Nummerfeltet ─────────────────────────────────────────────────────────
-  const badgeText = innerW < 55 ? BADGE_TEXT_SHORT : BADGE_TEXT
+  const badgeText = theme.merke ?? (innerW < 55 ? BADGE_TEXT_SHORT : BADGE_TEXT)
   const bleed = v === 'band' || !!theme.badgeBleed
   // Feltet med runde ender trenger mer luft på sidene, ellers kuttes teksten av rundingen
   const bpx = isPage ? 8 : isLabel ? (pille ? Math.max(pad, badgeH * 0.35) : pad) : grunnPad
@@ -444,8 +451,14 @@ export default function StickerCard({
 
   // ── Stort nummer og navn (Fargebjelke) ───────────────────────────────────
   const heroGap = isLabel ? gap * 0.5 : isPage ? 4 : grunnPad / 4
+  // En hylle heter det samme som nummeret sitt. Da står det én gang, og
+  // nummeret får hele blokka i stedet for «A3» stort og «A3» smått under.
+  const heroNavn = hero && category.name.trim().toUpperCase() !== nr.trim().toUpperCase()
   const hs = (() => {
     if (!hero) return { nr: 0, sub: 0, lines: 2 }
+    if (!heroNavn) {
+      return { nr: fitMm(isLabel ? nameH * 0.86 : F.hero / PT, textW * 0.98, nr.toUpperCase(), 900, -0.03), sub: 0, lines: 0 }
+    }
     let nrMm = fitMm(isLabel ? nameH * 0.62 : F.hero / PT, textW * 0.98, nr.toUpperCase(), 900, -0.03)
     if (!isLabel) return { nr: nrMm, sub: F.heroSub / PT, lines: 2 }
     // Inntil fire linjer, som navnet på de andre designene: et langt navn på en
@@ -520,7 +533,7 @@ export default function StickerCard({
   const fotInk = theme.footBand ? påAccent : ink
   const fotFaint = theme.footBand ? påAccent : faint
 
-  const info = plan ? infoMål(plan) : null
+  const info = plan ? infoMål(plan, infoLines) : null
   const font = isLabel
     ? {
         name: mm(nameFontMm),
@@ -556,7 +569,7 @@ export default function StickerCard({
       : v === 'cells' ? 2 * celleB + 1.2 * bpy + linjeH(F.shelf)
       : 2 * bpy + linjeH(F.shelf) + 2 * kantB + bandRegel
     const navn = hero
-      ? hs.nr * 0.92 + heroGap + linjer(category.name.toUpperCase(), hs.sub, 700, 0.06, false) * hs.sub * 1.2
+      ? hs.nr * 0.92 + (heroNavn ? heroGap + linjer(category.name.toUpperCase(), hs.sub, 700, 0.06, false) * hs.sub * 1.2 : 0)
       : (theme.surface !== 'red' ? 8.3 : 0)
         + linjer(navnVist, F.name / PT, NM.w, NM.t, NM.mono) * (F.name / PT) * NM.lh
         + (harDesc ? 4 + linjer(category.description || '', F.desc / PT, 400, 0, false) * (F.desc / PT) * 1.25 : 0)
@@ -647,6 +660,9 @@ export default function StickerCard({
       marginTop: mm(over),
       borderRadius: badgeRunding,
       padding: `${mm(bpy)} ${mm(bpx)}`,
+      // Hvitt felt på hvit bunn: en tynn grå kant innenfor, så feltet synes
+      // uten å ta plass fra innholdet
+      ...(feltForsvinner ? { outline: `${mm(0.3)} solid ${synligStrek(badgeAccent, bg)}`, outlineOffset: mm(-0.3) } : null),
     }
     const lbl = (farge: string, ekstra?: CSSProperties) => bf.visLabel && (
       <span style={{
@@ -948,15 +964,17 @@ export default function StickerCard({
       }}>
         {nr}
       </div>
-      <div style={{ width: '100%', minWidth: 0, marginTop: mm(heroGap) }}>
-        <p style={{
-          margin: 0, fontFamily: SANS, fontWeight: 700, letterSpacing: '0.06em', lineHeight: 1.2,
-          fontSize: mm(hs.sub), color: muted, textTransform: 'uppercase',
-          ...(isLabel ? CLAMP(hs.lines) : null),
-        }}>
-          {category.name}
-        </p>
-      </div>
+      {heroNavn && (
+        <div style={{ width: '100%', minWidth: 0, marginTop: mm(heroGap) }}>
+          <p style={{
+            margin: 0, fontFamily: SANS, fontWeight: 700, letterSpacing: '0.06em', lineHeight: 1.2,
+            fontSize: mm(hs.sub), color: muted, textTransform: 'uppercase',
+            ...(isLabel ? CLAMP(hs.lines) : null),
+          }}>
+            {category.name}
+          </p>
+        </div>
+      )}
     </div>
   )
 
@@ -1118,7 +1136,7 @@ export default function StickerCard({
     // holdes unna rammen og skriverens døde sone oppe og nede.
     const ender = isLabel ? Math.max(frame.t, frame.b, kant.t, kant.b) : Math.max(frame.t, frame.b)
     const lengde = (isLabel ? heightMm! : isPage ? 277 : innerW * 1.2) - 2 * ender
-    for (const t of [BADGE_TEXT, BADGE_TEXT_SHORT]) {
+    for (const t of theme.merke ? [theme.merke] : [BADGE_TEXT, BADGE_TEXT_SHORT]) {
       const f = Math.min(stripe * 0.5, (lengde * 0.8) / textW1(t, 700, 0.2))
       if (f >= 1.2) return { t, f }
     }

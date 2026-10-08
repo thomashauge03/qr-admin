@@ -2,7 +2,7 @@ import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import {
   LABEL_THEMES, LABEL_GRUPPER, getTheme, HM_RED, SVART, HVIT, tekstPå, kontrast, lesbarFarge,
-  lesUtskriftValg, lagreUtskriftValg, STANDARD_VALG,
+  synligStrek, LYS_KANT, lesUtskriftValg, lagreUtskriftValg, STANDARD_VALG,
   type LabelThemeId,
 } from './labelTheme.ts'
 
@@ -27,20 +27,22 @@ const FORMER: LabelThemeId[] = [
   'sperre', 'stripe', 'svartstripe', 'prikk', 'rute', 'svartrute', 'fane',
   'svartfane', 'stempel', 'svartstempel', 'pille', 'svartpille', 'hengelapp', 'klipp',
 ]
-const ALLE = [...ENKLE, ...KRAFTIGE, ...MØRKE, ...RAMMER, ...FORMER]
-// Alt utenom Standard, som beholder QR-kodens egen farge
-const NYE = ALLE.filter(id => id !== 'plain' && id !== 'hauge')
+// Til hyllene fra Lagersystemet — i hyllas egen farge, derfor egen gruppe
+const LAGER: LabelThemeId[] = ['hylle']
+const ALLE = [...ENKLE, ...KRAFTIGE, ...MØRKE, ...RAMMER, ...FORMER, ...LAGER]
+// Alt utenom Standard og lagerdesignet, som beholder QR-kodens egen farge
+const NYE = ALLE.filter(id => id !== 'plain' && id !== 'hauge' && !LAGER.includes(id))
 
-test('70 design, med Standard først', () => {
-  assert.equal(LABEL_THEMES.length, 70)
+test('71 design, med Standard først', () => {
+  assert.equal(LABEL_THEMES.length, 71)
   assert.deepEqual(LABEL_THEMES.map(t => t.id), ALLE)
   assert.equal(LABEL_THEMES[0].id, 'plain')
   assert.equal(new Set(LABEL_THEMES.map(t => t.name)).size, LABEL_THEMES.length)
 })
 
-test('fem grupper med 14 design i hver', () => {
-  assert.deepEqual(LABEL_GRUPPER.map(g => g.id), ['enkle', 'kraftige', 'morke', 'rammer', 'former'])
-  const forventet = { enkle: ENKLE, kraftige: KRAFTIGE, morke: MØRKE, rammer: RAMMER, former: FORMER }
+test('Lager først i velgeren, så fem grupper med 14 design i hver', () => {
+  assert.deepEqual(LABEL_GRUPPER.map(g => g.id), ['lager', 'enkle', 'kraftige', 'morke', 'rammer', 'former'])
+  const forventet = { lager: LAGER, enkle: ENKLE, kraftige: KRAFTIGE, morke: MØRKE, rammer: RAMMER, former: FORMER }
   for (const g of LABEL_GRUPPER) {
     assert.deepEqual(LABEL_THEMES.filter(t => t.gruppe === g.id).map(t => t.id), forventet[g.id], g.id)
     assert.ok(g.navn.length > 0, g.id)
@@ -182,4 +184,25 @@ test('lagring av utskriftsvalg: skriver JSON og kaster aldri', () => {
   let lagret = ''
   lagreUtskriftValg({ design: 'topp', logo: false }, { setItem: (_nøkkel, verdi) => { lagret = verdi } })
   assert.deepEqual(JSON.parse(lagret), { design: 'topp', logo: false })
+})
+
+test('hvit og nesten hvit får grå strek, så den synes på papiret', () => {
+  assert.equal(synligStrek('#FFFFFF'), LYS_KANT)
+  assert.equal(synligStrek('#fafafa'), LYS_KANT)
+  // Ekte farger beholdes — også gult, som er lyst men tydelig
+  assert.equal(synligStrek('#F2C200'), '#F2C200')
+  assert.equal(synligStrek('#1F4E79'), '#1F4E79')
+  // Mot svart bunn er hvitt tydelig nok
+  assert.equal(synligStrek('#FFFFFF', SVART), '#FFFFFF')
+})
+
+test('Lagerhylle: hyllas egen farge, «HYLLE» i bjelken og stort nummer', () => {
+  const t = getTheme('hylle')
+  assert.equal(t.accent, null)
+  assert.equal(t.border, null)
+  assert.equal(t.merke, 'HYLLE')
+  assert.equal(t.badge, 'band')
+  assert.equal(t.hero, true)
+  // Kategorilinja ga bitteliten skrift på noen lapper og ikke på andre
+  assert.equal(t.maksInfo, 2)
 })

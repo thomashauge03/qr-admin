@@ -206,8 +206,15 @@ export default function HomePage() {
       (c.description || '').toLowerCase().includes(search.toLowerCase())
     )
     .sort((a, b) => {
-      if (sort === 'created_at') return new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
-      return a[sort].localeCompare(b[sort])
+      // Tall i teksten som tall, så A10 kommer etter A9 og ikke etter A1
+      const naturlig = (x: string, y: string) => x.localeCompare(y, 'nb', { numeric: true })
+      if (sort === 'created_at') {
+        // En import legger inn hele bunken på samme tidspunkt. Uten noe å skille
+        // dem på ble arket stokket etter tilfeldige id-er — da tar hyllenummeret over.
+        return new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+          || naturlig(a.shelf_number, b.shelf_number)
+      }
+      return naturlig(a[sort], b[sort])
     })
 
   if (authLoading) {

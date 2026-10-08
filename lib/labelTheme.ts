@@ -4,7 +4,8 @@
  * «Standard» er den nøytrale etiketten vi alltid har hatt, i QR-kodens egen
  * farge. Alle de andre designene bruker bare Hauge Maskin-rødt, svart og hvitt.
  * De er delt i fem grupper med 14 i hver, så designvelgeren ikke blir én lang
- * stripe.
+ * stripe. Først står «Lager», med design til hyllene fra Lagersystemet — de
+ * bruker hyllas egen fargekode, som Standard.
  *
  * HM-logoen er ikke en del av designet, men et eget valg ved utskrift — alle
  * designene kan ha den. Designet bestemmer bare HVOR den står (`logoSlot`).
@@ -30,11 +31,14 @@ export type LabelThemeId =
   // Former
   | 'sperre' | 'stripe' | 'svartstripe' | 'prikk' | 'rute' | 'svartrute' | 'fane'
   | 'svartfane' | 'stempel' | 'svartstempel' | 'pille' | 'svartpille' | 'hengelapp' | 'klipp'
+  // Lager
+  | 'hylle'
 
-export type LabelGruppe = 'enkle' | 'kraftige' | 'morke' | 'rammer' | 'former'
+export type LabelGruppe = 'lager' | 'enkle' | 'kraftige' | 'morke' | 'rammer' | 'former'
 
 /** Gruppene i designvelgeren, i rekkefølge */
 export const LABEL_GRUPPER: { id: LabelGruppe; navn: string; hint: string }[] = [
+  { id: 'lager', navn: 'Lager', hint: 'Til hyllene fra Lagersystemet, i hyllas egen farge' },
   { id: 'enkle', navn: 'Enkle', hint: 'Rolige design som bruker lite blekk' },
   { id: 'kraftige', navn: 'Kraftige', hint: 'Store felt og tydelig farge' },
   { id: 'morke', navn: 'Mørke', hint: 'Svart eller rød bunn — bruker mye blekk' },
@@ -82,6 +86,10 @@ export interface LabelTheme {
    */
   badge: 'fill' | 'outline' | 'band' | 'stripes' | 'cells' | 'rule' | 'stack' | 'number' | 'split' | 'dot'
     | 'square' | 'tab' | 'stamp'
+  /** Teksten i nummerfeltet i stedet for «UTSTYR NUMMER» */
+  merke?: string
+  /** Høyst så mange infolinjer, de første — så lappene på et ark blir like */
+  maksInfo?: number
   /** Farge på nummerfeltet når den skal være en annen enn `accent` */
   badgeColor?: string
   /** Skrift på navn og nummer */
@@ -514,6 +522,16 @@ export const LABEL_THEMES: LabelTheme[] = [
     surface: 'paper', frame: 'dashed', corners: 'square', badge: 'fill', type: 'mono', logoSlot: 'foot',
     scissors: true,
   },
+
+  // ── Lager ────────────────────────────────────────────────────────────────
+  // Hylla har sin fargekode i verkstedet, og lappen bærer den samme. Navnet
+  // på en hylle ER hyllenummeret, så det står bare én gang — stort.
+  {
+    id: 'hylle', name: 'Lagerhylle', hint: 'Bjelke i hyllas farge og stort hyllenummer', gruppe: 'lager',
+    accent: null, border: null, merke: 'HYLLE', maksInfo: 2,
+    surface: 'paper', frame: 'thin', corners: 'square', badge: 'band', type: 'heavy', logoSlot: 'foot',
+    hero: true,
+  },
 ]
 
 export const DEFAULT_THEME = LABEL_THEMES[0]
@@ -556,6 +574,18 @@ export function lesbarFarge(farge: string, bunn: string, reserve: string): strin
 export function tekstPå(hex: string): string {
   if (luminans(hex) === null) return HVIT
   return kontrast(HVIT, hex) >= 3 ? HVIT : SVART
+}
+
+/**
+ * Grå strek der fargen selv forsvinner. En hvit hylle tegnet med hvit ramme og
+ * hvitt nummerfelt på hvitt papir er usynlig — samme grå kant som
+ * Lagersystemet tegner rundt sine hvite hyller.
+ */
+export const LYS_KANT = '#9a9a9a'
+
+/** Fargen selv, eller grått når den knapt skiller seg fra bunnen */
+export function synligStrek(farge: string, bunn: string = HVIT): string {
+  return luminans(farge) !== null && kontrast(farge, bunn) < 1.3 ? LYS_KANT : farge
 }
 
 // ── Husket valg ─────────────────────────────────────────────────────────────

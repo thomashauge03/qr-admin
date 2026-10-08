@@ -300,3 +300,15 @@ function lagPlan({ w, h, theme, logo, showBadge, hasInfo, kant = INGEN_KANT }: P
     textW, blokker,
   }
 }
+
+/**
+ * Infolinjene som får plass, tatt bort bakfra. Før forsvant alle på én gang så
+ * snart én linje ble for trang — da fikk hyllene med «Kategorier» et kjempenavn
+ * uten infoliste, mens naboene på samme ark hadde fargekode og antall.
+ * Linjene står etter viktighet, så det er de siste som må vike.
+ */
+export function beholdInfo<T>(linjer: T[], passer: (linjer: T[]) => boolean): T[] {
+  let ut = linjer
+  while (ut.length > 0 && !passer(ut)) ut = ut.slice(0, -1)
+  return ut
+}

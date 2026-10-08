@@ -1,6 +1,6 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { planEtikett, qrRuter, velgNivå, QR_RUTER, MIN_RUTE_MM, type EtikettPlan } from './etikettPlan.ts'
+import { planEtikett, qrRuter, velgNivå, beholdInfo, QR_RUTER, MIN_RUTE_MM, type EtikettPlan } from './etikettPlan.ts'
 import { LABEL_THEMES } from './labelTheme.ts'
 import { LABEL_SHEETS, SKRIVERKANT, kantVern } from './labelSheets.ts'
 
@@ -220,4 +220,13 @@ test('design med bunnbånd har alltid en bunnrad, også uten logo og ID', () => 
     const p = planEtikett({ w: 52.5, h: 29.7, theme: t, logo: false, showBadge: true, hasInfo: false })
     assert.ok(p.blokker.some(b => b.type === 'foot'), t.id)
   }
+})
+
+test('infolinjer: de som ikke får plass, tas bort bakfra — ikke alle på én gang', () => {
+  const linjer = ['Fargekode', 'Antall varer', 'Kategorier']
+  // Tre linjer blir for trangt, to går fint
+  assert.deepEqual(beholdInfo(linjer, l => l.length <= 2), ['Fargekode', 'Antall varer'])
+  assert.deepEqual(beholdInfo(linjer, () => true), linjer)
+  assert.deepEqual(beholdInfo(linjer, () => false), [])
+  assert.deepEqual(beholdInfo([], () => false), [])
 })
