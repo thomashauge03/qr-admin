@@ -15,8 +15,11 @@ import { Category, CategoryInsert, InfoLine, QRData, QRType } from '@/types'
 
 const GYLDIGE_TYPER: QRType[] = ['shop', 'url', 'text', 'email', 'phone', 'sms', 'wifi', 'location']
 
-/** Vertene vi godtar url-koder til. Samme adresse som hentFraLager. */
-const TILLATNE_QR_VERTAR = ['stock-smart-pi.vercel.app']
+/**
+ * Vertene vi godtar url-koder til: Lagersystemet (samme adresse som
+ * hentFraLager) og Rørlageret, som eksporterer rørtypene sine som JSON.
+ */
+const TILLATNE_QR_VERTAR = ['stock-smart-pi.vercel.app', 'rorlager.vercel.app']
 
 export interface ImportProblem {
   /** 1-indeksert radnummer slik brukeren ser det, ikke array-indeks. */
