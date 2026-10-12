@@ -13,8 +13,8 @@ export const LOGO_RATIO = 420 / 253
 
 export default function HaugeMaskinLogo({ height }: Props) {
   return (
-    // eslint-disable-next-line @next/next/no-img-element -- data-URI, må overleve
-    // kopieringen inn i utskriftsvinduet
+    // Data-URI som må overleve kopieringen inn i utskriftsvinduet
+    // eslint-disable-next-line @next/next/no-img-element
     <img
       src={HM_LOGO_SRC}
       alt="Hauge Maskin"
