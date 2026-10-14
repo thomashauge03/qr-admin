@@ -1,7 +1,7 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import {
-  planEtikett, qrRuter, velgNivå, beholdInfo, QR_RUTER, MIN_RUTE_MM, LOGO_RATIO, MIN_TEKST_VED_LOGO, type EtikettPlan,
+  planEtikett, qrRuter, velgNivå, beholdInfo, QR_RUTER, MIN_RUTE_MM, LOGO_RATIO, minTekstVedLogo, type EtikettPlan,
 } from './etikettPlan.ts'
 import { LABEL_THEMES } from './labelTheme.ts'
 import { LABEL_SHEETS, SKRIVERKANT, kantVern } from './labelSheets.ts'
@@ -245,21 +245,37 @@ test('lageretikett 105 × 30: logoen står stor ved siden av navnet, ikke i bunn
 test('logoen ved siden av lar alltid nok bredde stå igjen til navnet', () => {
   for (const [navn, p] of alle()) {
     if (p.logoIn !== 'side') continue
+    const f = FORMATER.find(x => x.id === navn.split(' ')[1])!
     const igjen = p.textW - p.logoSide * LOGO_RATIO - p.gap
-    assert.ok(igjen >= MIN_TEKST_VED_LOGO - EPS, `${navn}: ${igjen.toFixed(1)} mm`)
+    assert.ok(igjen >= minTekstVedLogo(f.h) - EPS, `${navn}: ${igjen.toFixed(1)} mm`)
     assert.ok(p.landscape, `${navn}: ved siden av på stående etikett`)
   }
 })
 
-test('lageretikett 105 × 60: logoen får en høyere bunnrad', () => {
+test('lageretikett 105 × 60: logoen står ved siden av navnet, som på 105 × 30', () => {
   const standard = LABEL_THEMES.find(t => t.id === 'plain')!
   const med = planEtikett({ w: 105, h: 60, theme: standard, logo: true, showBadge: true, hasInfo: true })
   const uten = planEtikett({ w: 105, h: 60, theme: standard, logo: false, showBadge: true, hasInfo: true })
-  assert.equal(med.logoIn, 'foot')
-  const fot = (p: EtikettPlan) => p.blokker.find(b => b.type === 'foot')?.h ?? 0
-  // Var 7,4 mm, der logoen ble 5,4 mm høy
-  assert.ok(fot(med) >= 11, `bunnraden er ${fot(med).toFixed(1)} mm`)
-  assert.equal(fot(uten), 0, 'uten logo er det ingen bunnrad å gjøre høy')
+  assert.equal(med.logoIn, 'side')
+  assert.ok(!med.blokker.some(b => b.type === 'foot'), 'bunnraden er borte')
+  // Var 5,4 mm i bunnraden
+  assert.ok(med.logoSide >= 12, `logoen er ${med.logoSide.toFixed(1)} mm`)
+  // QR-koden gir fra seg plass, men bare når logoen trenger den — og blir
+  // fortsatt mye større enn på 105 × 30
+  assert.ok(med.qrSide < uten.qrSide, 'QR-en krymper for logoen')
+  assert.ok(med.qrSide >= 34, `QR ${med.qrSide.toFixed(1)} mm`)
+  assert.ok(med.textW - med.logoSide * LOGO_RATIO - med.gap >= 38, 'navnet får minst like mye bredde som på 105 × 30')
+})
+
+test('høye etiketter der logoen ikke får plass ved siden av, får en høyere bunnrad', () => {
+  // Avery L7173 — 99,1 × 57: for smal til logoen ved siden av
+  const standard = LABEL_THEMES.find(t => t.id === 'plain')!
+  for (const f of FORMATER.filter(x => x.w > x.h && x.h >= 50 && x.h < 70)) {
+    const p = planEtikett({ w: f.w, h: f.h, theme: standard, logo: true, showBadge: true, hasInfo: true })
+    if (p.logoIn !== 'foot') continue
+    const fot = p.blokker.find(b => b.type === 'foot')!.h
+    assert.ok(fot >= p.innerH * 0.2, `${f.id}: bunnraden er ${fot.toFixed(1)} mm`)
+  }
 })
 
 test('design med bunnbånd beholder logoen i båndet', () => {

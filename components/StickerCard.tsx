@@ -134,7 +134,9 @@ const fitMm = (
  */
 const wrapLines = (text: string, width: number, font: number, weight: Vekt, tracking: number, mono: boolean) => {
   let lines = 1, brukt = 0
-  for (const ord of text.split(/(?<=[\s-])/)) {
+  // Ikke etter en bindestrek som står foran skråstrek: «Spyle-/inspeksjonskum»
+  // er ett ord for nettleseren, som ikke brekker foran «/»
+  for (const ord of text.split(/(?<=\s|-(?!\/))/)) {
     const full = textW1(ord, weight, tracking, mono) * font
     const uten = textW1(ord.trimEnd(), weight, tracking, mono) * font
     if (uten > width) return Infinity

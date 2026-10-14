@@ -121,11 +121,15 @@ const klem = (v: number, min: number, max: number) => Math.min(max, Math.max(min
 /** Bredde/høyde på HM-logoen — samme fil som HaugeMaskinLogo tegner */
 export const LOGO_RATIO = 420 / 253
 
-/** Bredden navn og infolinjer minst skal beholde når logoen flytter inn ved siden av */
-export const MIN_TEKST_VED_LOGO = 38
-
-/** Fra denne høyden får liggende etiketter en høyere bunnrad til logoen */
+/** Fra denne høyden regnes en liggende etikett som høy — se logoVedSiden */
 export const STOR_FOT_FRA = 50
+
+/**
+ * Bredden navn og infolinjer minst skal beholde når logoen står ved siden av.
+ * En høy etikett har høyden til å bryte navnet over flere linjer i stor skrift,
+ * og klarer seg med en smalere kolonne enn en lav.
+ */
+export const minTekstVedLogo = (h: number) => (h >= STOR_FOT_FRA ? 30 : 38)
 
 /**
  * Logoen ved siden av teksten i stedet for i bunnraden.
@@ -136,13 +140,15 @@ export const STOR_FOT_FRA = 50
  * høyde under nummerfeltet, og bunnraden forsvinner så navnet og infolinjene
  * får høyden den tok.
  *
- * Bare når teksten beholder minst MIN_TEKST_VED_LOGO og logoen blir minst
- * dobbelt så stor som i bunnraden — ellers er bytte ingen gevinst.
+ * Bare når teksten beholder minst `minTekst` og logoen blir minst dobbelt så
+ * stor som i bunnraden — ellers er bytte ingen gevinst.
  */
-function logoVedSiden(valg: { textW: number; radH: number; footLogo: number; gap: number }): number {
-  const h = Math.min(valg.radH * 0.8, (valg.textW * 0.27) / LOGO_RATIO)
+function logoVedSiden(valg: {
+  textW: number; radH: number; footLogo: number; gap: number; andel: number; minTekst: number
+}): number {
+  const h = Math.min(valg.radH * 0.8, (valg.textW * valg.andel) / LOGO_RATIO)
   const igjen = valg.textW - h * LOGO_RATIO - valg.gap
-  return igjen >= MIN_TEKST_VED_LOGO && h >= valg.footLogo * 2 ? h : 0
+  return igjen >= valg.minTekst && h >= valg.footLogo * 2 ? h : 0
 }
 
 /**
@@ -269,8 +275,10 @@ function lagPlan({ w, h, theme, logo, showBadge, hasInfo, kant = INGEN_KANT }: P
   // Liggende: brede etiketter får QR-en ved siden av teksten i stedet for over
   // den — ellers begrenser høyden QR-en til under halv størrelse. På de minste
   // etikettene tar koden inntil 62 % av bredden for å holde rutene store nok.
-  const liggendeQr = Math.max(0, Math.min(innerH, Math.max(innerW * (theme.qrFocus ? 0.6 : 0.5), Math.min(qrMin, innerW * 0.62))))
-  const liggendeTekstW = Math.max(1, innerW - liggendeQr - gap)
+  const qrLiggende = (andel: number) =>
+    Math.max(0, Math.min(innerH, Math.max(innerW * andel, Math.min(qrMin, innerW * 0.62))))
+  let liggendeQr = qrLiggende(theme.qrFocus ? 0.6 : 0.5)
+  let liggendeTekstW = Math.max(1, innerW - liggendeQr - gap)
 
   // Logoen flytter inn ved siden av teksten der bunnraden ville gjort den til
   // et frimerke. Bunnbåndet er en del av designet og beholder logoen, og der
@@ -278,12 +286,25 @@ function lagPlan({ w, h, theme, logo, showBadge, hasInfo, kant = INGEN_KANT }: P
   let logoSide = 0
   if (landscape && logoIn === 'foot' && !theme.footBand && !showId) {
     const footInnerH = innerH * 0.14 - gap / 2 - 0.3
-    logoSide = logoVedSiden({
-      textW: liggendeTekstW,
-      radH: innerH - headH - badgeH - (showBadge ? gap : 0),
-      footLogo: footInnerH * 0.9,
-      gap,
-    })
+    const radH = innerH - headH - badgeH - (showBadge ? gap : 0)
+    const minTekst = minTekstVedLogo(h)
+    logoSide = logoVedSiden({ textW: liggendeTekstW, radH, footLogo: footInnerH * 0.9, gap, andel: 0.27, minTekst })
+    // Høye etiketter — 105 × 60 — har en QR på halve bredden, og da er
+    // tekstkolonnen for smal til logoen. Koden gir fra seg en tredjedel (50 mm
+    // blir 35, fortsatt større enn på 105 × 30 og langt over det som trengs for
+    // å skanne), og logoen får samme plass ved siden av navnet som på 105 × 30.
+    // Navnet får rundt 40 mm — smalere ville krympet et langt ord som
+    // «Overgangsmuffe» mer enn på den lille etiketten.
+    if (logoSide === 0 && h >= STOR_FOT_FRA && !theme.qrFocus) {
+      const qr = qrLiggende(0.35)
+      const tekstW = Math.max(1, innerW - qr - gap)
+      const side = logoVedSiden({ textW: tekstW, radH, footLogo: footInnerH * 0.9, gap, andel: 0.33, minTekst })
+      if (side > 0) {
+        liggendeQr = qr
+        liggendeTekstW = tekstW
+        logoSide = side
+      }
+    }
     if (logoSide > 0) logoIn = 'side'
   }
 
