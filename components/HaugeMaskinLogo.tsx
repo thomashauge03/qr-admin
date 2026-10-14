@@ -1,4 +1,5 @@
 import { HM_LOGO_SRC } from '@/lib/hmLogo'
+import { LOGO_RATIO } from '@/lib/etikettPlan'
 
 /**
  * HM-merket til Hauge Maskin — selve originallogoen, se lib/hmLogo.ts.
@@ -8,8 +9,8 @@ interface Props {
   height: string
 }
 
-/** Bredde/høyde på logoen — brukes også av StickerCard til plassregningen */
-export const LOGO_RATIO = 420 / 253
+// Bredde/høyde på logoen. Står i etikettPlan, som regner plassen til den.
+export { LOGO_RATIO }
 
 export default function HaugeMaskinLogo({ height }: Props) {
   return (

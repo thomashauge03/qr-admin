@@ -1,6 +1,8 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { planEtikett, qrRuter, velgNivå, beholdInfo, QR_RUTER, MIN_RUTE_MM, type EtikettPlan } from './etikettPlan.ts'
+import {
+  planEtikett, qrRuter, velgNivå, beholdInfo, QR_RUTER, MIN_RUTE_MM, LOGO_RATIO, MIN_TEKST_VED_LOGO, type EtikettPlan,
+} from './etikettPlan.ts'
 import { LABEL_THEMES } from './labelTheme.ts'
 import { LABEL_SHEETS, SKRIVERKANT, kantVern } from './labelSheets.ts'
 
@@ -89,8 +91,11 @@ test('logoen havner der designet vil ha den, og bare når den er slått på', ()
   for (const [navn, p] of alle()) {
     const [id, , logo] = navn.split(' ')
     const plass = LABEL_THEMES.find(t => t.id === id)!.logoSlot
-    assert.equal(p.logoIn, logo === 'logo=true' ? plass : null, navn)
+    // Bunnraden kan bli «ved siden av» på brede, liggende etiketter
+    const venta: EtikettPlan['logoIn'][] = logo !== 'logo=true' ? [null] : plass === 'foot' ? ['foot', 'side'] : [plass]
+    assert.ok(venta.includes(p.logoIn), `${navn}: ${p.logoIn}`)
     assert.equal(p.blokker.some(b => b.type === 'head'), p.logoIn === 'head', navn)
+    assert.equal(p.logoSide > 0, p.logoIn === 'side', navn)
   }
 })
 
@@ -219,6 +224,48 @@ test('design med bunnbånd har alltid en bunnrad, også uten logo og ID', () => 
   for (const t of LABEL_THEMES.filter(x => x.footBand)) {
     const p = planEtikett({ w: 52.5, h: 29.7, theme: t, logo: false, showBadge: true, hasInfo: false })
     assert.ok(p.blokker.some(b => b.type === 'foot'), t.id)
+  }
+})
+
+test('lageretikett 105 × 30: logoen står stor ved siden av navnet, ikke i bunnraden', () => {
+  const standard = LABEL_THEMES.find(t => t.id === 'plain')!
+  for (const hasInfo of [true, false]) {
+    const p = planEtikett({ w: 105, h: 30, theme: standard, logo: true, showBadge: true, hasInfo })
+    assert.equal(p.logoIn, 'side', `info=${hasInfo}`)
+    assert.ok(!p.blokker.some(b => b.type === 'foot'), 'bunnraden er borte')
+    // Var 2,5 mm i bunnraden
+    assert.ok(p.logoSide >= 10, `logoen er ${p.logoSide.toFixed(1)} mm`)
+    // Logoen får plass i høyden under nummerfeltet
+    const rad = p.blokker.filter(b => b.type === 'name' || b.type === 'info')
+    const radH = rad.reduce((s, b, i) => s + b.h + (i > 0 ? b.over : 0), 0)
+    assert.ok(p.logoSide <= radH + EPS, `logo ${p.logoSide.toFixed(1)} > rad ${radH.toFixed(1)}`)
+  }
+})
+
+test('logoen ved siden av lar alltid nok bredde stå igjen til navnet', () => {
+  for (const [navn, p] of alle()) {
+    if (p.logoIn !== 'side') continue
+    const igjen = p.textW - p.logoSide * LOGO_RATIO - p.gap
+    assert.ok(igjen >= MIN_TEKST_VED_LOGO - EPS, `${navn}: ${igjen.toFixed(1)} mm`)
+    assert.ok(p.landscape, `${navn}: ved siden av på stående etikett`)
+  }
+})
+
+test('lageretikett 105 × 60: logoen får en høyere bunnrad', () => {
+  const standard = LABEL_THEMES.find(t => t.id === 'plain')!
+  const med = planEtikett({ w: 105, h: 60, theme: standard, logo: true, showBadge: true, hasInfo: true })
+  const uten = planEtikett({ w: 105, h: 60, theme: standard, logo: false, showBadge: true, hasInfo: true })
+  assert.equal(med.logoIn, 'foot')
+  const fot = (p: EtikettPlan) => p.blokker.find(b => b.type === 'foot')?.h ?? 0
+  // Var 7,4 mm, der logoen ble 5,4 mm høy
+  assert.ok(fot(med) >= 11, `bunnraden er ${fot(med).toFixed(1)} mm`)
+  assert.equal(fot(uten), 0, 'uten logo er det ingen bunnrad å gjøre høy')
+})
+
+test('design med bunnbånd beholder logoen i båndet', () => {
+  for (const t of LABEL_THEMES.filter(x => x.footBand)) {
+    const p = planEtikett({ w: 105, h: 30, theme: t, logo: true, showBadge: true, hasInfo: true })
+    assert.equal(p.logoIn, 'foot', t.id)
   }
 })
 

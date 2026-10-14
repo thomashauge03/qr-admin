@@ -5,7 +5,7 @@ import { QRCodeSVG } from 'qrcode.react'
 import { Category, InfoLine, buildQRValue } from '@/types'
 import { LabelThemeId, getTheme, tekstPå, lesbarFarge, synligStrek, SVART, HVIT } from '@/lib/labelTheme'
 import {
-  planEtikett, blokkRekkefolge, velgNivå, beholdInfo, INGEN_KANT, MIN_RUTE_MM, QR_RUTER,
+  planEtikett, blokkRekkefolge, velgNivå, beholdInfo, INGEN_KANT, MIN_RUTE_MM, QR_RUTER, STOR_FOT_FRA,
   type BlokkType, type EtikettPlan, type Sider,
 } from '@/lib/etikettPlan'
 import HaugeMaskinLogo, { LOGO_RATIO } from './HaugeMaskinLogo'
@@ -224,8 +224,14 @@ export default function StickerCard({
   // eksplisitt i mm — se lib/etikettPlan.ts
   const isLabel = !fullPage && !!heightMm
 
-  const alleInfo = (category.info_lines || []).filter(l => l.label || l.value).slice(0, theme.maksInfo)
   const nr = category.shelf_number
+  // En infolinje som bare gjentar nummeret i nummerfeltet, tar plass fra navnet
+  // uten å si noe nytt. Rør fra Rørlageret uten hylleplass får varenummeret som
+  // nummer, og da sto «5020156» to ganger over hverandre.
+  const gjentarNr = (l: InfoLine) => showBadge && l.value.trim() !== '' && l.value.trim() === nr.trim()
+  const alleInfo = (category.info_lines || [])
+    .filter(l => (l.label || l.value) && !gjentarNr(l))
+    .slice(0, theme.maksInfo)
 
   // ── Farger ───────────────────────────────────────────────────────────────
   // En valgt fellesfarge går foran designet, som igjen går foran QR-kodens egen
@@ -264,7 +270,9 @@ export default function StickerCard({
   const lagPlan = (medInfo: boolean) =>
     planEtikett({ w: widthMm ?? 60, h: heightMm!, theme, logo, showBadge, hasInfo: medInfo, kant })
   const infoMål = (p: EtikettPlan, linjer: InfoLine[]) => {
-    const colW = p.landscape ? p.textW : Math.max(1, p.innerW - p.qrSide - p.gap)
+    // Står logoen ved siden av, deler infolinjene bredden med den
+    const side = p.logoSide > 0 ? p.logoSide * LOGO_RATIO + p.gap : 0
+    const colW = p.landscape ? p.textW - side : Math.max(1, p.innerW - p.qrSide - p.gap)
     const infoH = p.blokker.find(b => b.type === 'info')?.h ?? 0
     const linjeH = (p.landscape ? infoH : p.qrSide) / Math.max(1, linjer.length)
     const innhold = Math.max(0.5, linjeH - p.gap * 1.5)
@@ -309,6 +317,10 @@ export default function StickerCard({
   const stripeX = plan ? plan.stripeX : 0
   const innerW = plan ? plan.innerW : cardMm - frame.l - frame.r - stripe - luft.l - luft.r
   const textW = plan ? plan.textW : innerW
+  // Logoen ved siden av navnet: den tar bredde fra navn og infolinjer, mens
+  // nummerfeltet over går over hele kolonnen
+  const logoSide = plan?.logoSide ?? 0
+  const radW = logoSide > 0 ? textW - logoSide * LOGO_RATIO - (plan?.gap ?? 0) : textW
   const gap = plan ? plan.gap : isPage ? 10 : grunnPad / 2
   // Én luftverdi der designet trenger et grunnmål (avrunding, hjørner, saks)
   const pad = Math.min(luft.t - hull, luft.r, luft.b, luft.l)
@@ -457,14 +469,14 @@ export default function StickerCard({
   const hs = (() => {
     if (!hero) return { nr: 0, sub: 0, lines: 2 }
     if (!heroNavn) {
-      return { nr: fitMm(isLabel ? nameH * 0.86 : F.hero / PT, textW * 0.98, nr.toUpperCase(), 900, -0.03), sub: 0, lines: 0 }
+      return { nr: fitMm(isLabel ? nameH * 0.86 : F.hero / PT, radW * 0.98, nr.toUpperCase(), 900, -0.03), sub: 0, lines: 0 }
     }
-    let nrMm = fitMm(isLabel ? nameH * 0.62 : F.hero / PT, textW * 0.98, nr.toUpperCase(), 900, -0.03)
+    let nrMm = fitMm(isLabel ? nameH * 0.62 : F.hero / PT, radW * 0.98, nr.toUpperCase(), 900, -0.03)
     if (!isLabel) return { nr: nrMm, sub: F.heroSub / PT, lines: 2 }
     // Inntil fire linjer, som navnet på de andre designene: et langt navn på en
     // liten etikett ville ellers krympet til 1 mm for å stå på færre. Undertekst
     // holdes mindre enn nummeret, men aldri så liten at den ikke kan leses.
-    const tilpassNavn = () => fitBlock(Math.max(0, nameH - nrMm * 0.92 - heroGap), textW, category.name.toUpperCase(), 4, 700, 0.06, 1.2)
+    const tilpassNavn = () => fitBlock(Math.max(0, nameH - nrMm * 0.92 - heroGap), radW, category.name.toUpperCase(), 4, 700, 0.06, 1.2)
     let sub = tilpassNavn()
     // Blir navnet for lite, gir nummeret fra seg plass — så lenge det er
     // tydelig større enn navnet
@@ -485,7 +497,7 @@ export default function StickerCard({
   const navnRom = nameH - (skille ? gap + 0.3 : 0)
   // Selv et veldig langt navn skal være lesbart — heller kutte enn å krympe
   const minNavn = Math.min(1.9, nameH * 0.3)
-  const tilpassNavn = (rom: number) => fitBlock(rom, textW, navnVist, 4, NM.w, NM.t, NM.lh, NM.mono)
+  const tilpassNavn = (rom: number) => fitBlock(rom, radW, navnVist, 4, NM.w, NM.t, NM.lh, NM.mono)
   let harDesc = !!category.description && showDesc && !hero
   let nameFit = isLabel && !hero ? tilpassNavn(harDesc ? (navnRom - gap / 2) * 0.66 : navnRom) : { mm: 0, lines: 1 }
   // Navnet er viktigere enn beskrivelsen: måtte navnet kuttes for at
@@ -498,7 +510,7 @@ export default function StickerCard({
   const nameLines = nameFit.lines
   // Beskrivelsen får det som er igjen under navnet, minus lufta mellom dem
   const descBudget = navnRom - nameFontMm * NM.lh * nameLines - gap / 2
-  const descFit = isLabel ? fitBlock(Math.max(0, descBudget), textW, category.description || '', 2, 400, 0, 1.25) : { mm: 0, lines: 2 }
+  const descFit = isLabel ? fitBlock(Math.max(0, descBudget), radW, category.description || '', 2, 400, 0, 1.25) : { mm: 0, lines: 2 }
   const descFontMm = Math.min(descFit.mm, nameFontMm * 0.72)
   const descLines = descFit.lines
   const visDesc = harDesc && (!isLabel || descFontMm >= MIN_BESKRIVELSE)
@@ -513,9 +525,11 @@ export default function StickerCard({
   const plateHode = !papir
   const plateFot = !papir || !!theme.footBand
   // Logoen på etikettark: så høy bunnraden tillater, men aldri bredere enn en
-  // fjerdedel av etiketten — resten av raden skal være til ordmerke og ID.
+  // fjerdedel av etiketten — resten av raden skal være til ordmerke og ID. Den
+  // høye bunnraden på store liggende etiketter tåler en bredere logo.
+  const logoBredde = landscape && (heightMm ?? 0) >= STOR_FOT_FRA ? 0.4 : 0.26
   const logoMaks = isLabel
-    ? Math.min(footInnerH * 0.9, textW * 0.26 / LOGO_RATIO)
+    ? Math.min(footInnerH * 0.9, textW * logoBredde / LOGO_RATIO)
     : isPage ? 15 : Math.max(2.5, innerW * 0.11)
   const logoMm = plateFot ? logoMaks / 1.28 : logoMaks
   const hodeMaks = isLabel
@@ -1252,14 +1266,33 @@ export default function StickerCard({
     pageBreakInside: 'avoid',
   }
 
+  // Logoen ved siden av: navn og infolinjer står i en rad med logoen til
+  // høyre, like høy som blokkene den erstatter. Nummerfeltet går over hele.
+  const vedLogo = logoSide > 0 ? blokker.filter(b => b.type === 'name' || b.type === 'info') : []
+  const sideRad = vedLogo.length > 0 && (
+    <div key="ved-logo" style={{
+      display: 'flex', alignItems: 'center', gap: mm(gap), width: '100%', flexShrink: 0,
+      height: mm(vedLogo.reduce((sum, b, i) => sum + b.h + (i > 0 ? b.over : 0), 0)),
+      marginTop: mm(vedLogo[0].over),
+    }}>
+      <div style={{ display: 'flex', flexDirection: 'column', flex: 1, minWidth: 0, height: '100%' }}>
+        {vedLogo.map((b, i) => <Fragment key={b.type}>{blokk(b.type, i > 0 ? b.over : 0)}</Fragment>)}
+      </div>
+      {logoEl(papir ? logoSide : logoSide / 1.28, !papir)}
+    </div>
+  )
+
   // Bunnbåndet skal ligge helt nederst, også når innholdet over ikke fyller
   // etiketten — en tom fleksibel blokk tar opp lufta over det
-  const innhold = blokker.map(b => (
-    <Fragment key={b.type}>
-      {b.type === 'foot' && theme.footBand && !landscape && <div style={{ flex: '1 1 auto' }} />}
-      {blokk(b.type, b.over)}
-    </Fragment>
-  ))
+  const innhold = blokker.map(b => {
+    if (vedLogo.includes(b)) return b === vedLogo[0] ? sideRad : null
+    return (
+      <Fragment key={b.type}>
+        {b.type === 'foot' && theme.footBand && !landscape && <div style={{ flex: '1 1 auto' }} />}
+        {blokk(b.type, b.over)}
+      </Fragment>
+    )
+  })
 
   // Liggende etikett: QR til venstre, all tekst i en kolonne til høyre
   if (landscape) {

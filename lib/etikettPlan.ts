@@ -95,8 +95,13 @@ export interface EtikettPlan {
   /** Beskrivelse og ID får bare plass på de større etikettene */
   showDesc: boolean
   showId: boolean
-  /** Hvor logoen står, null når den er slått av */
-  logoIn: 'head' | 'foot' | null
+  /**
+   * Hvor logoen står, null når den er slått av. «side» er til høyre for navn
+   * og infolinjer på brede, liggende etiketter — se logoVedSiden.
+   */
+  logoIn: 'head' | 'foot' | 'side' | null
+  /** Logoens høyde i mm når den står ved siden av teksten, ellers 0 */
+  logoSide: number
   /** Plassen QR-blokka har — med hjørnemerker eller ramme */
   qrSide: number
   /** Selve QR-koden med stillesone */
@@ -112,6 +117,33 @@ export interface EtikettPlan {
 }
 
 const klem = (v: number, min: number, max: number) => Math.min(max, Math.max(min, v))
+
+/** Bredde/høyde på HM-logoen — samme fil som HaugeMaskinLogo tegner */
+export const LOGO_RATIO = 420 / 253
+
+/** Bredden navn og infolinjer minst skal beholde når logoen flytter inn ved siden av */
+export const MIN_TEKST_VED_LOGO = 38
+
+/** Fra denne høyden får liggende etiketter en høyere bunnrad til logoen */
+export const STOR_FOT_FRA = 50
+
+/**
+ * Logoen ved siden av teksten i stedet for i bunnraden.
+ *
+ * På en lav, bred etikett — 105 × 30 — er bunnraden under 4 mm høy, og logoen
+ * ble et frimerke på 2,5 mm. Samtidig står høyre del av tekstkolonnen tom:
+ * navnene fyller sjelden mer enn halve bredden. Der får logoen plass i full
+ * høyde under nummerfeltet, og bunnraden forsvinner så navnet og infolinjene
+ * får høyden den tok.
+ *
+ * Bare når teksten beholder minst MIN_TEKST_VED_LOGO og logoen blir minst
+ * dobbelt så stor som i bunnraden — ellers er bytte ingen gevinst.
+ */
+function logoVedSiden(valg: { textW: number; radH: number; footLogo: number; gap: number }): number {
+  const h = Math.min(valg.radH * 0.8, (valg.textW * 0.27) / LOGO_RATIO)
+  const igjen = valg.textW - h * LOGO_RATIO - valg.gap
+  return igjen >= MIN_TEKST_VED_LOGO && h >= valg.footLogo * 2 ? h : 0
+}
 
 /**
  * Rammetykkelse i mm per side. 0,4 er det tynneste en vanlig kontorskriver
@@ -212,9 +244,7 @@ function lagPlan({ w, h, theme, logo, showBadge, hasInfo, kant = INGEN_KANT }: P
   const gap = innerH * 0.04
   const showDesc = h >= 50 && !theme.qrFocus
   const showId = h >= 70
-  const logoIn = logo ? theme.logoSlot : null
-  // Bunnbåndet er en del av designet og står også uten logo og ID
-  const showFoot = showId || logoIn === 'foot' || !!theme.footBand
+  let logoIn: EtikettPlan['logoIn'] = logo ? theme.logoSlot : null
   // Uten nummerfelt er det ikke noe nummer å løfte fram
   const hero = !!theme.hero && showBadge
 
@@ -232,9 +262,40 @@ function lagPlan({ w, h, theme, logo, showBadge, hasInfo, kant = INGEN_KANT }: P
     : theme.badge === 'stripes' ? 1.1
     : 1
   let badgeH = showBadge ? innerH * (landscape ? 0.2 : 0.19) * badgeAndel : 0
+
+  // Den minste koden som skannes sikkert. QR-koden går foran teksten: der
+  // etiketten har plass til den, gir teksten fra seg plass før rutene blir for små.
+  const qrMin = QR_RUTER * MIN_RUTE_MM
+  // Liggende: brede etiketter får QR-en ved siden av teksten i stedet for over
+  // den — ellers begrenser høyden QR-en til under halv størrelse. På de minste
+  // etikettene tar koden inntil 62 % av bredden for å holde rutene store nok.
+  const liggendeQr = Math.max(0, Math.min(innerH, Math.max(innerW * (theme.qrFocus ? 0.6 : 0.5), Math.min(qrMin, innerW * 0.62))))
+  const liggendeTekstW = Math.max(1, innerW - liggendeQr - gap)
+
+  // Logoen flytter inn ved siden av teksten der bunnraden ville gjort den til
+  // et frimerke. Bunnbåndet er en del av designet og beholder logoen, og der
+  // ID-en står i bunnraden, blir logoen stående ved den.
+  let logoSide = 0
+  if (landscape && logoIn === 'foot' && !theme.footBand && !showId) {
+    const footInnerH = innerH * 0.14 - gap / 2 - 0.3
+    logoSide = logoVedSiden({
+      textW: liggendeTekstW,
+      radH: innerH - headH - badgeH - (showBadge ? gap : 0),
+      footLogo: footInnerH * 0.9,
+      gap,
+    })
+    if (logoSide > 0) logoIn = 'side'
+  }
+
+  // Bunnbåndet er en del av designet og står også uten logo og ID
+  const showFoot = showId || logoIn === 'foot' || !!theme.footBand
   // Bunnraden rommer logo (til venstre) og ID (til høyre). Logoen trenger litt
-  // mer høyde enn ID-teksten alene for å være lesbar på små etiketter.
-  const footH = showFoot ? innerH * ((landscape ? 0.09 : 0.08) + (logoIn === 'foot' ? 0.05 : 0)) : 0
+  // mer høyde enn ID-teksten alene for å være lesbar på små etiketter. På
+  // liggende etiketter fra 50 mm er tekstkolonnen for smal til logoen ved
+  // siden av, men høyden finnes — der får logoen en bunnrad den synes i.
+  const storFot = landscape && logoIn === 'foot' && h >= STOR_FOT_FRA
+  const logoAndel = logoIn !== 'foot' ? 0 : storFot ? 0.13 : 0.05
+  const footH = showFoot ? innerH * ((landscape ? 0.09 : 0.08) + logoAndel) : 0
 
   const rekkefolge = blokkRekkefolge({
     landscape, hero, head: headH > 0, badge: showBadge, info: hasInfo && landscape, foot: showFoot,
@@ -242,18 +303,10 @@ function lagPlan({ w, h, theme, logo, showBadge, hasInfo, kant = INGEN_KANT }: P
   })
   const mellomrom = gap * (rekkefolge.length - 1)
 
-  // Den minste koden som skannes sikkert. QR-koden går foran teksten: der
-  // etiketten har plass til den, gir teksten fra seg plass før rutene blir for små.
-  const qrMin = QR_RUTER * MIN_RUTE_MM
-
   let qrSide: number, textW: number, nameH: number, infoH = 0
   if (landscape) {
-    // Brede etiketter får QR-en ved siden av teksten i stedet for over den —
-    // ellers begrenser høyden QR-en til under halv størrelse. På de minste
-    // etikettene tar koden inntil 62 % av bredden for å holde rutene store nok.
-    const andel = theme.qrFocus ? 0.6 : 0.5
-    qrSide = Math.max(0, Math.min(innerH, Math.max(innerW * andel, Math.min(qrMin, innerW * 0.62))))
-    textW = Math.max(1, innerW - qrSide - gap)
+    qrSide = liggendeQr
+    textW = liggendeTekstW
     const rest = Math.max(0, innerH - headH - badgeH - footH - mellomrom)
     nameH = hasInfo ? rest * 0.45 : rest
     infoH = hasInfo ? rest * 0.55 : 0
@@ -295,7 +348,7 @@ function lagPlan({ w, h, theme, logo, showBadge, hasInfo, kant = INGEN_KANT }: P
   const blokker = rekkefolge.map((type, i) => ({ type, h: høyde[type], over: i === 0 ? 0 : gap }))
 
   return {
-    landscape, pad: luft, frame, stripe, stripeX, hull, innerW, innerH, gap, showDesc, showId, logoIn,
+    landscape, pad: luft, frame, stripe, stripeX, hull, innerW, innerH, gap, showDesc, showId, logoIn, logoSide,
     qrSide, qrSvg, qrMerker: pynt && !!theme.qrMarks, qrRamme: pynt && theme.qrFrame ? innslag : 0,
     textW, blokker,
   }
