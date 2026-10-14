@@ -25,6 +25,7 @@ const EKSEMPEL: Category = {
 }
 
 const GRUPPER = [
+  { gruppe: 'lager', navn: 'Lageretiketter' },
   { gruppe: 'kant', navn: 'A4 delt kant i kant' },
   { gruppe: 'avery', navn: 'Avery' },
   { gruppe: 'zweckform', navn: 'Zweckform' },

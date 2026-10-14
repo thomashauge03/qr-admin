@@ -17,7 +17,7 @@ export interface LabelSheet {
   id: string
   name: string
   /** Hvor arket hører hjemme i listen */
-  gruppe: 'kant' | 'avery' | 'zweckform' | 'egen'
+  gruppe: 'lager' | 'kant' | 'avery' | 'zweckform' | 'egen'
   /** Etikettstørrelse i mm */
   w: number
   h: number
@@ -43,6 +43,12 @@ export const A4 = { w: 210, h: 297 }
 export const SKRIVERKANT = 5.5
 
 export const LABEL_SHEETS: LabelSheet[] = [
+  // ---- Lageretiketter til Rørlageret og hyllene ----
+  // Like brede som 8 per ark, men lave: 3 og 6 cm. Så mange rader som får
+  // plass, sentrert i høyden — resten av arket klippes bort
+  { id: 'lager-30', gruppe: 'lager', name: 'Lageretikett — 105 × 30 (18)', w: 105, h: 30, cols: 2, rows: 9, marginTop: 13.5, marginLeft: 0, pitchX: 105, pitchY: 30 },
+  { id: 'lager-60', gruppe: 'lager', name: 'Lageretikett — 105 × 60 (8)',  w: 105, h: 60, cols: 2, rows: 4, marginTop: 28.5, marginLeft: 0, pitchX: 105, pitchY: 60 },
+
   // ---- A4 delt kant i kant (ingen mellomrom) ----
   // Helt ark med 10mm luft, siden de fleste skrivere ikke printer helt ut i kanten
   { id: 'a4-1',  gruppe: 'kant', name: '1 per ark — helt A4, 190 × 277', w: 190, h: 277, cols: 1, rows: 1,  marginTop: 10, marginLeft: 10, pitchX: 190, pitchY: 277 },

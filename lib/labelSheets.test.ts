@@ -46,6 +46,15 @@ test('24 per ark er 3 × 8 etiketter på 70 × 37,125 mm', () => {
   assert.ok(Math.abs(s.h - 297 / 8) < 0.001, `høyde ${s.h}`)
 })
 
+test('lageretikettene er 105 mm brede og 30 og 60 mm høye', () => {
+  for (const [id, h, antall] of [['lager-30', 30, 18], ['lager-60', 60, 8]] as const) {
+    const s = ark(id)
+    assert.equal(s.w, 105)
+    assert.equal(s.h, h)
+    assert.equal(s.cols * s.rows, antall)
+  }
+})
+
 test('de vanlige Zweckform- og Avery-arkene som manglet, finnes', () => {
   for (const id of ['z3425', 'z3424', 'z3426', 'z3423', 'z3481', 'z3475', 'z3422',
     'l7173', 'l7166', 'l7162', 'l7161', 'l7159']) {
