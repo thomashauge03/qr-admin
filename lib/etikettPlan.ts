@@ -134,8 +134,8 @@ export const minTekstVedLogo = (h: number) => (h >= STOR_FOT_FRA ? 30 : 38)
 /**
  * Logoen ved siden av teksten i stedet for i bunnraden.
  *
- * På en lav, bred etikett — 105 × 30 — er bunnraden under 4 mm høy, og logoen
- * ble et frimerke på 2,5 mm. Samtidig står høyre del av tekstkolonnen tom:
+ * På en lav, bred etikett — lageretiketten på 105 × 37 — er bunnraden rundt
+ * 4 mm høy, og logoen ble et frimerke på 3 mm. Samtidig står høyre del av tekstkolonnen tom:
  * navnene fyller sjelden mer enn halve bredden. Der får logoen plass i full
  * høyde under nummerfeltet, og bunnraden forsvinner så navnet og infolinjene
  * får høyden den tok.
@@ -288,11 +288,11 @@ function lagPlan({ w, h, theme, logo, showBadge, hasInfo, kant = INGEN_KANT }: P
     const footInnerH = innerH * 0.14 - gap / 2 - 0.3
     const radH = innerH - headH - badgeH - (showBadge ? gap : 0)
     const minTekst = minTekstVedLogo(h)
-    logoSide = logoVedSiden({ textW: liggendeTekstW, radH, footLogo: footInnerH * 0.9, gap, andel: 0.27, minTekst })
+    logoSide = logoVedSiden({ textW: liggendeTekstW, radH, footLogo: footInnerH * 0.9, gap, andel: 0.3, minTekst })
     // Høye etiketter — 105 × 60 — har en QR på halve bredden, og da er
     // tekstkolonnen for smal til logoen. Koden gir fra seg en tredjedel (50 mm
-    // blir 35, fortsatt større enn på 105 × 30 og langt over det som trengs for
-    // å skanne), og logoen får samme plass ved siden av navnet som på 105 × 30.
+    // blir 35, fortsatt større enn på 105 × 37 og langt over det som trengs for
+    // å skanne), og logoen får samme plass ved siden av navnet som på 105 × 37.
     // Navnet får rundt 40 mm — smalere ville krympet et langt ord som
     // «Overgangsmuffe» mer enn på den lille etiketten.
     if (logoSide === 0 && h >= STOR_FOT_FRA && !theme.qrFocus) {

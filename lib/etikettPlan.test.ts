@@ -227,14 +227,14 @@ test('design med bunnbånd har alltid en bunnrad, også uten logo og ID', () => 
   }
 })
 
-test('lageretikett 105 × 30: logoen står stor ved siden av navnet, ikke i bunnraden', () => {
+test('lageretikett 105 × 37: logoen står stor ved siden av navnet, ikke i bunnraden', () => {
   const standard = LABEL_THEMES.find(t => t.id === 'plain')!
   for (const hasInfo of [true, false]) {
-    const p = planEtikett({ w: 105, h: 30, theme: standard, logo: true, showBadge: true, hasInfo })
+    const p = planEtikett({ w: 105, h: 37, theme: standard, logo: true, showBadge: true, hasInfo })
     assert.equal(p.logoIn, 'side', `info=${hasInfo}`)
     assert.ok(!p.blokker.some(b => b.type === 'foot'), 'bunnraden er borte')
-    // Var 2,5 mm i bunnraden
-    assert.ok(p.logoSide >= 10, `logoen er ${p.logoSide.toFixed(1)} mm`)
+    // Var 3 mm i bunnraden
+    assert.ok(p.logoSide >= 11.5, `logoen er ${p.logoSide.toFixed(1)} mm`)
     // Logoen får plass i høyden under nummerfeltet
     const rad = p.blokker.filter(b => b.type === 'name' || b.type === 'info')
     const radH = rad.reduce((s, b, i) => s + b.h + (i > 0 ? b.over : 0), 0)
@@ -252,7 +252,7 @@ test('logoen ved siden av lar alltid nok bredde stå igjen til navnet', () => {
   }
 })
 
-test('lageretikett 105 × 60: logoen står ved siden av navnet, som på 105 × 30', () => {
+test('lageretikett 105 × 60: logoen står ved siden av navnet, som på 105 × 37', () => {
   const standard = LABEL_THEMES.find(t => t.id === 'plain')!
   const med = planEtikett({ w: 105, h: 60, theme: standard, logo: true, showBadge: true, hasInfo: true })
   const uten = planEtikett({ w: 105, h: 60, theme: standard, logo: false, showBadge: true, hasInfo: true })
@@ -261,10 +261,10 @@ test('lageretikett 105 × 60: logoen står ved siden av navnet, som på 105 × 3
   // Var 5,4 mm i bunnraden
   assert.ok(med.logoSide >= 12, `logoen er ${med.logoSide.toFixed(1)} mm`)
   // QR-koden gir fra seg plass, men bare når logoen trenger den — og blir
-  // fortsatt mye større enn på 105 × 30
+  // fortsatt større enn på 105 × 37
   assert.ok(med.qrSide < uten.qrSide, 'QR-en krymper for logoen')
   assert.ok(med.qrSide >= 34, `QR ${med.qrSide.toFixed(1)} mm`)
-  assert.ok(med.textW - med.logoSide * LOGO_RATIO - med.gap >= 38, 'navnet får minst like mye bredde som på 105 × 30')
+  assert.ok(med.textW - med.logoSide * LOGO_RATIO - med.gap >= 38, 'navnet får minst 38 mm, som på den lave etiketten')
 })
 
 test('høye etiketter der logoen ikke får plass ved siden av, får en høyere bunnrad', () => {
@@ -280,7 +280,7 @@ test('høye etiketter der logoen ikke får plass ved siden av, får en høyere b
 
 test('design med bunnbånd beholder logoen i båndet', () => {
   for (const t of LABEL_THEMES.filter(x => x.footBand)) {
-    const p = planEtikett({ w: 105, h: 30, theme: t, logo: true, showBadge: true, hasInfo: true })
+    const p = planEtikett({ w: 105, h: 37, theme: t, logo: true, showBadge: true, hasInfo: true })
     assert.equal(p.logoIn, 'foot', t.id)
   }
 })
