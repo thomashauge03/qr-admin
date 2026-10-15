@@ -44,9 +44,11 @@ export const SKRIVERKANT = 5.5
 
 export const LABEL_SHEETS: LabelSheet[] = [
   // ---- Lageretiketter til Rørlageret og hyllene ----
-  // Like brede som 8 per ark, men lave: 3,7 og 6 cm. Så mange rader som får
-  // plass, sentrert i høyden — resten av arket klippes bort. Den lave var 3 cm
-  // til oktober 2026; 3,7 cm passer hyllene bedre og gir 16 per ark.
+  // Like brede som 8 per ark, men lave: 2,6, 3,7 og 6 cm. Så mange rader som
+  // får plass, sentrert i høyden — resten av arket klippes bort. Den lave var
+  // 3 cm til oktober 2026; 3,7 cm passer hyllene bedre og gir 16 per ark.
+  // 2,6 cm er til de smale hyllekantene, 22 per ark.
+  { id: 'lager-26', gruppe: 'lager', name: 'Lageretikett — 105 × 26 (22)', w: 105, h: 26, cols: 2, rows: 11, marginTop: 5.5, marginLeft: 0, pitchX: 105, pitchY: 26 },
   { id: 'lager-37', gruppe: 'lager', name: 'Lageretikett — 105 × 37 (16)', w: 105, h: 37, cols: 2, rows: 8, marginTop: 0.5, marginLeft: 0, pitchX: 105, pitchY: 37 },
   { id: 'lager-60', gruppe: 'lager', name: 'Lageretikett — 105 × 60 (8)',  w: 105, h: 60, cols: 2, rows: 4, marginTop: 28.5, marginLeft: 0, pitchX: 105, pitchY: 60 },
 

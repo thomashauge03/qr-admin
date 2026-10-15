@@ -46,8 +46,8 @@ test('24 per ark er 3 × 8 etiketter på 70 × 37,125 mm', () => {
   assert.ok(Math.abs(s.h - 297 / 8) < 0.001, `høyde ${s.h}`)
 })
 
-test('lageretikettene er 105 mm brede og 37 og 60 mm høye', () => {
-  for (const [id, h, antall] of [['lager-37', 37, 16], ['lager-60', 60, 8]] as const) {
+test('lageretikettene er 105 mm brede og 26, 37 og 60 mm høye', () => {
+  for (const [id, h, antall] of [['lager-26', 26, 22], ['lager-37', 37, 16], ['lager-60', 60, 8]] as const) {
     const s = ark(id)
     assert.equal(s.w, 105)
     assert.equal(s.h, h)
