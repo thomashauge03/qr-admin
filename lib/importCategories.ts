@@ -1,4 +1,4 @@
-import { Category, CategoryInsert, InfoLine, QRData, QRType } from '@/types'
+import type { Category, CategoryInsert, InfoLine, QRData, QRType } from '@/types'
 
 /*
  * Import av QR-grunnlag fra Lagersystemet (Stock Smart).
@@ -284,4 +284,23 @@ export function leggPlan(rader: CategoryInsert[], eksisterende: Category[]): Pla
   }
 
   return { nye, oppdateres }
+}
+
+/**
+ * Mappa ein kode som finst frå før skal få ved import.
+ *
+ * Før heldt importen mappa urørt, så ein ny mappe for ei vareliste fekk berre
+ * dei kodane som var nye – resten låg att der dei var. No blir dei flytta når
+ * ei mappe er vald. «Uten mappe» flyttar ingenting: ein import skal aldri ta
+ * kodar ut av sorteringa ved eit uhell. undefined = ikkje rør feltet.
+ */
+export function mappeVedOppdatering(valgt: string | null, flytt: boolean): string | undefined {
+  return valgt !== null && flytt ? valgt : undefined
+}
+
+/** Kor mange av kodane som finst frå før, som faktisk byter mappe */
+export function tellFlytting(plan: Plan, eksisterende: Pick<Category, 'id' | 'folder_id'>[], valgt: string | null): number {
+  if (valgt === null) return 0
+  const mappe = new Map(eksisterende.map(k => [k.id, k.folder_id]))
+  return plan.oppdateres.filter(o => mappe.get(o.id) !== valgt).length
 }

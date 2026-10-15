@@ -2,7 +2,7 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react'
 import { supabase } from '@/lib/supabase'
 import { Category, Folder } from '@/types'
-import { leggPlan, parseImport } from '@/lib/importCategories'
+import { leggPlan, mappeVedOppdatering, parseImport, tellFlytting } from '@/lib/importCategories'
 import { hentQrGrunnlag } from '@/lib/hentFraLager'
 
 interface Props {
@@ -23,6 +23,8 @@ interface Props {
 export default function ImportModal({ folders, existing, defaultFolderId, onClose, onDone }: Props) {
   const [tekst, setTekst] = useState('')
   const [folderId, setFolderId] = useState<string | null>(defaultFolderId)
+  // Koder som finnes fra før flyttes til mappen som er valgt, med mindre man sier nei
+  const [flyttEksisterende, setFlyttEksisterende] = useState(true)
   const [jobber, setJobber] = useState(false)
   const [feil, setFeil] = useState('')
   const [hentekode, setHentekode] = useState('')
@@ -38,6 +40,7 @@ export default function ImportModal({ folders, existing, defaultFolderId, onClos
 
   const { rader, problemer, kilde } = useMemo(() => parseImport(tekst), [tekst])
   const plan = useMemo(() => leggPlan(rader, existing), [rader, existing])
+  const flyttes = useMemo(() => tellFlytting(plan, existing, folderId), [plan, existing, folderId])
 
   const lesFil = async (fil: File) => {
     setFeil('')
@@ -88,12 +91,14 @@ export default function ImportModal({ folders, existing, defaultFolderId, onClos
         satt += bolk.length
       }
 
+      // Velger man en mappe, havner også kodene som finnes fra før der — ellers
+      // fikk en ny mappe for en vareliste bare de nye. «Uten mappe» rører ikke
+      // mappen deres. Se mappeVedOppdatering.
+      const mappeForEksisterende = mappeVedOppdatering(folderId, flyttEksisterende)
       for (const o of plan.oppdateres) {
-        // folder_id holdes urørt ved oppdatering — den som har sortert en kode
-        // inn i en mappe skal ikke få den flyttet av en reimport.
         const { error } = await supabase
           .from('categories')
-          .update({ ...o.rad, folder_id: undefined, user_id: userId })
+          .update({ ...o.rad, folder_id: mappeForEksisterende, user_id: userId })
           .eq('id', o.id)
         if (error) throw error
         oppdatert++
@@ -292,16 +297,33 @@ export default function ImportModal({ folders, existing, defaultFolderId, onClos
               )}
 
               {/* Mappe */}
-              {plan.nye.length > 0 && (
+              {(plan.nye.length > 0 || plan.oppdateres.length > 0) && (
                 <div>
-                  {merkelapp('LEGG NYE I MAPPE')}
+                  {merkelapp('LEGG I MAPPE')}
                   <select value={folderId ?? ''} onChange={e => setFolderId(e.target.value || null)}>
                     <option value="">Uten mappe</option>
                     {folders.map(f => <option key={f.id} value={f.id}>{f.name}</option>)}
                   </select>
-                  <p style={{ fontSize: '0.72rem', color: 'var(--muted)', marginTop: 6 }}>
-                    Koder som finnes fra før beholder mappen de allerede ligger i.
-                  </p>
+                  {plan.oppdateres.length > 0 && folderId !== null && flyttes > 0 ? (
+                    <label className="flex items-start gap-2" style={{ fontSize: '0.78rem', marginTop: 8, cursor: 'pointer' }}>
+                      <input
+                        type="checkbox"
+                        checked={flyttEksisterende}
+                        onChange={e => setFlyttEksisterende(e.target.checked)}
+                        style={{ marginTop: 2 }}
+                      />
+                      <span>
+                        Flytt også {flyttes === 1 ? 'den 1' : `de ${flyttes}`} som finnes fra før hit
+                        <span style={{ display: 'block', color: 'var(--muted)', fontSize: '0.72rem' }}>
+                          Ellers blir {flyttes === 1 ? 'den' : 'de'} liggende i mappen {flyttes === 1 ? 'den' : 'de'} er i nå.
+                        </span>
+                      </span>
+                    </label>
+                  ) : plan.oppdateres.length > 0 && folderId === null ? (
+                    <p style={{ fontSize: '0.72rem', color: 'var(--muted)', marginTop: 6 }}>
+                      Koder som finnes fra før beholder mappen de allerede ligger i. Velg en mappe for å flytte dem dit.
+                    </p>
+                  ) : null}
                 </div>
               )}
 
