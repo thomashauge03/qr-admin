@@ -27,6 +27,16 @@ test('den som vel å la dei liggje, får det', () => {
   assert.equal(mappeVedOppdatering('ny-mappe', false), undefined)
 })
 
+test('maskinsider frå utleie-appen kan importerast, framande vertar ikkje', () => {
+  const rad = (url: string) => JSON.stringify([{ name: 'MOTORSAGER', shelf_number: 'M-0068', qr_type: 'url', qr_data: { type: 'url', url } }])
+  const ok = parseImport(rad('https://utleie-hauge-maskin.vercel.app/m/M-0068'))
+  assert.equal(ok.rader.length, 1)
+  assert.equal(ok.problemer.length, 0)
+  const nei = parseImport(rad('https://utleie-hauge-maskin.vercel.app.example.com/m/M-0068'))
+  assert.equal(nei.rader.length, 0)
+  assert.match(nei.problemer[0].grunn, /fremmed vert/)
+})
+
 test('tel berre dei som faktisk byter mappe', () => {
   const { rader } = parseImport(json(['a', 'b', 'c', 'd']))
   const eksisterende = [finst('1', 'a', 'gammal'), finst('2', 'b', null), finst('3', 'c', 'ny')]

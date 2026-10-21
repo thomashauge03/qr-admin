@@ -17,9 +17,10 @@ const GYLDIGE_TYPER: QRType[] = ['shop', 'url', 'text', 'email', 'phone', 'sms',
 
 /**
  * Vertene vi godtar url-koder til: Lagersystemet (samme adresse som
- * hentFraLager) og Rørlageret, som eksporterer rørtypene sine som JSON.
+ * hentFraLager), Rørlageret, som eksporterer rørtypene sine som JSON, og
+ * utleie-appen, der hver maskin har sin side på /m/<M-kode>.
  */
-const TILLATNE_QR_VERTAR = ['stock-smart-pi.vercel.app', 'rorlager.vercel.app']
+const TILLATNE_QR_VERTAR = ['stock-smart-pi.vercel.app', 'rorlager.vercel.app', 'utleie-hauge-maskin.vercel.app']
 
 export interface ImportProblem {
   /** 1-indeksert radnummer slik brukeren ser det, ikke array-indeks. */
