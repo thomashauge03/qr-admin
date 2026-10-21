@@ -46,6 +46,14 @@ test('24 per ark er 3 × 8 etiketter på 70 × 37,125 mm', () => {
   assert.ok(Math.abs(s.h - 297 / 8) < 0.001, `høyde ${s.h}`)
 })
 
+test('32 per ark er 8 per ark halvert i både bredde og høyde', () => {
+  const s = ark('a4-32')
+  const åtte = ark('a4-8')
+  assert.equal(s.cols * s.rows, 32)
+  assert.equal(s.w, åtte.w / 2)
+  assert.equal(s.h, åtte.h / 2)
+})
+
 test('lageretikettene er 105 mm brede og 26, 37 og 60 mm høye', () => {
   for (const [id, h, antall] of [['lager-26', 26, 22], ['lager-37', 37, 16], ['lager-60', 60, 8]] as const) {
     const s = ark(id)

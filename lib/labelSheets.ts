@@ -65,6 +65,8 @@ export const LABEL_SHEETS: LabelSheet[] = [
   // Var 70 × 49,5 med 8 rader = 396 mm: de to nederste radene havnet utenfor
   // arket, og 6 av 24 etiketter forsvant i stillhet på hvert ark
   { id: 'a4-24', gruppe: 'kant', name: '24 per ark — 70 × 37,1',   w: 70,    h: 37.125, cols: 3, rows: 8,  marginTop: 0, marginLeft: 0, pitchX: 70,    pitchY: 37.125 },
+  // 8 per ark halvert i både bredde og høyde
+  { id: 'a4-32', gruppe: 'kant', name: '32 per ark — 52,5 × 37,1', w: 52.5,  h: 37.125, cols: 4, rows: 8,  marginTop: 0, marginLeft: 0, pitchX: 52.5,  pitchY: 37.125 },
   { id: 'a4-40', gruppe: 'kant', name: '40 per ark — 52,5 × 29,7', w: 52.5,  h: 29.7,   cols: 4, rows: 10, marginTop: 0, marginLeft: 0, pitchX: 52.5,  pitchY: 29.7   },
 
   // ---- Avery (med marger og mellomrom) ----
